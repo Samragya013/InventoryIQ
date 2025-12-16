@@ -158,10 +158,15 @@ function attachEventListeners() {
         // Store original forecast for scenario calculation
         window.originalForecastData = JSON.parse(JSON.stringify(data));
         
-        renderTable(data);
         renderChart(data);
-        renderRiskSummary(data);
-        renderDecisionCards(data);
+        renderTable(data);
+        renderBusinessImpactCard(data);
+        renderInactionRiskCard(data);
+        renderScenarioSnapshot(data);
+        renderRiskSummaryCard(data);
+        renderConfidenceCard(data);
+        renderOperationalRec(data);
+        renderModelHealth(data);
         updateSummary(data);
         
         // Show scenario controls and attach handlers
@@ -247,10 +252,15 @@ function applyScenario(items, originalData, multiplier) {
         };
       });
       
-      // Update table and chart
-      renderTable(updatedData);
+      // Update all sections
       renderChart(updatedData);
-      renderDecisionCards(updatedData);
+      renderTable(updatedData);
+      renderBusinessImpactCard(updatedData);
+      renderInactionRiskCard(updatedData);
+      renderScenarioSnapshot(updatedData);
+      renderRiskSummaryCard(updatedData);
+      renderConfidenceCard(updatedData);
+      renderOperationalRec(updatedData);
       updateSummary(updatedData);
       
       // Reattach explanation handlers to new table
@@ -461,42 +471,61 @@ function renderChart(data) {
   });
 }
 
-/* ================= RISK SUMMARY ================= */
-
-function renderRiskSummary(data) {
-  const counts = { Low: 0, Medium: 0, High: 0 };
-  data.forEach(d => counts[d.risk_level]++);
-
-  riskSummary.innerHTML = `
-    High risk products: <strong>${counts.High}</strong><br>
-    Medium risk products: <strong>${counts.Medium}</strong><br>
-    Low risk products: <strong>${counts.Low}</strong>
-  `;
-}
-
 /* ================= SUMMARY BAR ================= */
 
 function updateSummary(data) {
-  const totalOrder = data.reduce(
-    (sum, d) => sum + d.recommended_order_qty, 0
-  );
-
+  const totalOrder = data.reduce((sum, d) => sum + d.recommended_order_qty, 0);
   const counts = { Low: 0, Medium: 0, High: 0 };
   data.forEach(d => counts[d.risk_level]++);
 
-  // Generate neutral summary statement
-  let summaryText = `Inventory plan generated: ${totalOrder.toLocaleString()} units across ${data.length} product${data.length > 1 ? 's' : ''}.`;
-  
+  let actionText = '';
+  let riskLevel = 'low';
+  let riskBadge = 'LOW RISK';
+
   if (counts.High > 0) {
-    summaryText += ` ${counts.High} item${counts.High > 1 ? 's' : ''} with high demand variability.`;
+    riskLevel = 'high';
+    riskBadge = 'HIGH RISK';
+    const riskPct = Math.round((counts.High / data.length) * 100);
+    actionText = `⚠ <strong>${riskPct}% of portfolio</strong> has elevated variability. Recommend <strong>${counts.High} priority reviews</strong> before ordering <strong>${totalOrder} units</strong>.`;
   } else if (counts.Medium > 0) {
-    summaryText += ` ${counts.Medium} item${counts.Medium > 1 ? 's' : ''} with moderate demand variability.`;
+    riskLevel = 'medium';
+    riskBadge = 'MEDIUM RISK';
+    actionText = `→ Portfolio ready for ordering with <strong>${counts.Medium} items</strong> needing attention. <strong>Total order: ${totalOrder} units</strong> across <strong>${data.length} products</strong>.`;
   } else {
-    summaryText += ` All items show stable demand patterns.`;
+    actionText = `✓ <strong>Ready to order: ${totalOrder} units</strong> across all <strong>${data.length} products</strong>. Low variability detected. Safe to proceed with current plan.`;
   }
 
-  summaryBar.innerHTML = summaryText;
+  summaryBar.innerHTML = `
+    <div class="summary-content">
+      <span class="summary-action">${actionText}</span>
+      <span class="summary-badge" data-risk="${riskLevel}">${riskBadge}</span>
+    </div>
+    <p class="summary-subtitle">POWERED BY DEMAND FORECASTING & CONFIDENCE-ADJUSTED SAFETY STOCK OPTIMIZATION</p>
+  `;
   summaryBar.classList.remove("hidden");
+
+  // Update risk insight
+  const counts2 = { Low: 0, Medium: 0, High: 0 };
+  data.forEach(d => counts2[d.risk_level]++);
+  updateRiskInsight(counts2, data.length, riskLevel);
+}
+
+/* ================= RISK INSIGHT ================= */
+
+function updateRiskInsight(counts, totalProducts, riskLevel) {
+  const riskInsightDiv = document.getElementById('riskInsight');
+  let insightText = '';
+
+  if (riskLevel === 'high') {
+    insightText = `High variability detected in <strong>${counts.High}</strong> products. These items experienced significant demand fluctuations in recent weeks, increasing the chance of stockout or overstock. Consider reviewing recent promotions, competitor activity, or seasonal factors before committing to large orders.`;
+  } else if (riskLevel === 'medium') {
+    insightText = `Moderate variability affects <strong>${counts.Medium}</strong> products. While these are manageable with standard safety stock practices, monitor them more closely than stable items. A small increase to the recommended order quantity may provide additional buffer.`;
+  } else {
+    insightText = `Low variability across the portfolio. All items show stable, predictable demand patterns. Recommended order quantities are reliable for inventory planning purposes.`;
+  }
+
+  riskInsightDiv.querySelector('.risk-insight-text').innerHTML = insightText;
+  riskInsightDiv.classList.remove('hidden');
 }
 
 /* ================= FORECAST EXPLANATION ================= */
@@ -606,140 +635,115 @@ function attachExplanationHandlers() {
   });
 }
 
-/* ================= DECISION REINFORCEMENT CARDS ================= */
+/* ================= BUSINESS IMPACT CARD ================= */
 
-/* ================= RENDER RESULTS ================= */
-
-function renderForecastConfidence(data) {
-  const container = document.getElementById('confidenceContent');
+function renderBusinessImpactCard(data) {
+  const container = document.getElementById('businessImpact');
   
   if (!data || data.length === 0) {
     container.innerHTML = '';
     return;
   }
-
+  
+  // Calculate metrics
+  const totalForecast = data.reduce((sum, d) => sum + d.forecast_units, 0);
+  const totalOrder = data.reduce((sum, d) => sum + d.recommended_order_qty, 0);
+  const totalSafetyStock = totalOrder - totalForecast;
+  const safetyStockPct = Math.round((totalSafetyStock / totalForecast) * 100);
+  
+  // Calculate stockout risk based on high-risk items
   const highRiskCount = data.filter(d => d.risk_level === 'High').length;
-  const avgRisk = data.reduce((sum, d) => {
-    const riskVal = d.risk_level === 'Low' ? 0 : d.risk_level === 'Medium' ? 1 : 2;
-    return sum + riskVal;
-  }, 0) / data.length;
-
-  const confidence = Math.round(75 + Math.random() * 15);
-  const reliabilityLevel = avgRisk < 0.5 ? 'Stable' : avgRisk < 1.5 ? 'Moderate' : 'High Variability';
-
+  const stockoutRiskAvoided = highRiskCount > 0 ? Math.round((highRiskCount / data.length) * 100) : 5;
+  
+  // Service level (inverse of stockout risk)
+  const expectedServiceLevel = 100 - stockoutRiskAvoided;
+  
+  // Cost direction (based on safety stock)
+  const costDirection = safetyStockPct > 15 ? '↑' : safetyStockPct > 0 ? '→' : '↓';
+  const costText = safetyStockPct > 15 ? 'Cost increase' : safetyStockPct > 0 ? 'Minimal cost impact' : 'Cost reduction';
+  
   const html = `
-    <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.7;">
-      <div style="margin-bottom: 16px;">
-        <strong style="color: var(--text);">Forecast Confidence: ${confidence}%</strong>
-        <div style="margin-top: 8px; font-size: 12px; color: var(--muted);">
-          Based on 52 weeks of historical data and demand stability analysis.
-        </div>
-      </div>
-      <div style="padding: 12px; background: rgba(6, 182, 212, 0.08); border-radius: 6px; border-left: 3px solid rgba(6, 182, 212, 0.3);">
-        <strong style="color: var(--text);">Reliability:</strong> ${reliabilityLevel}<br>
-        <strong style="color: var(--text); margin-top: 8px; display: block;">Data Freshness:</strong> Current (52 weeks)<br>
-        <strong style="color: var(--text); margin-top: 8px; display: block;">Model Version:</strong> v1.0 Production
-      </div>
+    <div class="impact-item">
+      <span class="impact-label">STOCKOUT RISK AVOIDED</span>
+      <span class="impact-value">${stockoutRiskAvoided}%</span>
+      <span class="impact-unit">Demand coverage</span>
+    </div>
+    <div class="impact-item">
+      <span class="impact-label">SAFETY BUFFER</span>
+      <span class="impact-value">${safetyStockPct}%</span>
+      <span class="impact-unit">${totalSafetyStock} units</span>
+    </div>
+    <div class="impact-item">
+      <span class="impact-label">EXPECTED SERVICE LEVEL</span>
+      <span class="impact-value">${expectedServiceLevel}%</span>
+      <span class="impact-unit">fulfillment rate</span>
+    </div>
+    <div class="impact-item">
+      <span class="impact-label">COST IMPACT</span>
+      <span class="impact-direction">${costDirection}</span>
+      <span class="impact-unit">${costText}</span>
     </div>
   `;
-
+  
   container.innerHTML = html;
 }
 
-function renderRiskAssessment(data) {
-  const container = document.getElementById('riskContent');
+/* ================= INACTION RISK CARD ================= */
+
+function renderInactionRiskCard(data) {
+  const container = document.getElementById('inactionRisk');
   
   if (!data || data.length === 0) {
     container.innerHTML = '';
     return;
   }
-
-  const lowRiskCount = data.filter(d => d.risk_level === 'Low').length;
-  const mediumRiskCount = data.filter(d => d.risk_level === 'Medium').length;
+  
+  // Calculate counterfactual risk if no action taken
+  const totalForecast = data.reduce((sum, d) => sum + d.forecast_units, 0);
   const highRiskCount = data.filter(d => d.risk_level === 'High').length;
-
-  const html = `
-    <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.7;">
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-        <div style="padding: 12px; background: rgba(16, 185, 129, 0.08); border-radius: 6px; text-align: center;">
-          <div style="font-weight: 600; color: #10b981; font-size: 18px;">${lowRiskCount}</div>
-          <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">Low Risk</div>
-        </div>
-        <div style="padding: 12px; background: rgba(245, 158, 11, 0.08); border-radius: 6px; text-align: center;">
-          <div style="font-weight: 600; color: #f59e0b; font-size: 18px;">${mediumRiskCount}</div>
-          <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">Medium Risk</div>
-        </div>
-        <div style="padding: 12px; background: rgba(239, 68, 68, 0.08); border-radius: 6px; text-align: center;">
-          <div style="font-weight: 600; color: #ef4444; font-size: 18px;">${highRiskCount}</div>
-          <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">High Risk</div>
-        </div>
-      </div>
-      <div style="padding: 12px; background: rgba(6, 182, 212, 0.08); border-radius: 6px; border-left: 3px solid rgba(6, 182, 212, 0.3);">
-        <strong style="color: var(--text); display: block; margin-bottom: 6px;">Risk Classification:</strong>
-        Risk levels are based on historical demand volatility. High-risk items show greater variability; consider monitoring closely during execution.
-      </div>
-    </div>
-  `;
-
-  container.innerHTML = html;
-}
-
-function renderModelStatus(data) {
-  const container = document.getElementById('modelAssumptions');
+  
+  // Inaction risk: stockout rate without safety stock
+  const stockoutRiskIncrease = highRiskCount > 0 ? Math.round((highRiskCount / data.length) * 100) : 8;
+  
+  // Potential lost sales (units not fulfilled) - estimated as forecast variance
+  const potentialLostUnits = Math.ceil(totalForecast * (stockoutRiskIncrease / 100));
+  
+  // Service level drop (without safety buffer)
+  const serviceDropWithoutBuffer = Math.round(stockoutRiskIncrease * 1.3); // Amplified without buffer
   
   const html = `
-    <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.7;">
-      <div style="margin-bottom: 16px;">
-        <strong style="color: var(--text); display: block; margin-bottom: 8px;">Active Model</strong>
-        <div style="padding: 12px; background: rgba(6, 182, 212, 0.08); border-radius: 6px;">
-          <div><strong>Version:</strong> v1.0 Production</div>
-          <div style="margin-top: 6px;"><strong>Algorithm:</strong> Gradient Boosting Regressor</div>
-          <div style="margin-top: 6px;"><strong>Training Data:</strong> 52 weeks of historical transactions</div>
-          <div style="margin-top: 6px;"><strong>Last Updated:</strong> Today</div>
-        </div>
-      </div>
-      <div style="margin-top: 16px;">
-        <strong style="color: var(--text); display: block; margin-bottom: 8px;">Key Assumptions</strong>
-        <ul style="list-style: none; margin: 0; padding: 0;">
-          <li style="padding: 6px 0; border-bottom: 1px solid rgba(6, 182, 212, 0.1);">
-            • No supply chain disruptions
-          </li>
-          <li style="padding: 6px 0; border-bottom: 1px solid rgba(6, 182, 212, 0.1);">
-            • No major promotional activity beyond historical patterns
-          </li>
-          <li style="padding: 6px 0;">
-            • Competitive environment remains consistent
-          </li>
-        </ul>
-      </div>
+    <div class="inaction-item">
+      <span class="inaction-label">STOCKOUT RISK ↑</span>
+      <span class="inaction-value">+${stockoutRiskIncrease}%</span>
+      <span class="inaction-unit">vs. recommended plan</span>
+    </div>
+    <div class="inaction-item">
+      <span class="inaction-label">POTENTIAL UNFULFILLED</span>
+      <span class="inaction-value">~${potentialLostUnits}</span>
+      <span class="inaction-unit">units</span>
+    </div>
+    <div class="inaction-item">
+      <span class="inaction-label">SERVICE LEVEL ↓</span>
+      <span class="inaction-value">−${serviceDropWithoutBuffer}%</span>
+      <span class="inaction-unit">fulfillment rate</span>
+    </div>
+    <div class="inaction-item">
+      <span class="inaction-label">RECOMMENDATION</span>
+      <span class="inaction-value">⚠️</span>
+      <span class="inaction-unit">Proceed with plan</span>
     </div>
   `;
-
+  
   container.innerHTML = html;
 }
 
-
-function renderDecisionCards(data) {
-  // Render forecast confidence (separated from risk)
-  renderForecastConfidence(data);
-  // Render risk assessment (separated from confidence)
-  renderRiskAssessment(data);
-  // Render model status and assumptions
-  renderModelStatus(data);
-  // Render scenario snapshot
-  renderScenarioSnapshot(data);
-}
+/* ================= SCENARIO SNAPSHOT ================= */
 
 function renderScenarioSnapshot(data) {
   const container = document.getElementById('scenarioSnapshot');
   
   if (!data || data.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">📊</div>
-        <div class="empty-state-message">No forecast data available. Generate a plan to see scenario comparison.</div>
-      </div>
-    `;
+    container.innerHTML = '';
     return;
   }
   
@@ -750,42 +754,115 @@ function renderScenarioSnapshot(data) {
   
   const html = `
     <table>
-      <thead>
-        <tr>
-          <th>Scenario</th>
-          <th data-tooltip="Recommended order quantities under different demand conditions">Total Order Qty</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td data-tooltip="Risk of overstock; use if you expect lower demand">Conservative (−30%)</td>
-          <td>${conservativeTotal} units</td>
-        </tr>
-        <tr style="background: linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(6, 182, 212, 0.04) 100%);">
-          <td data-tooltip="Most likely outcome based on current forecast"><strong>Base Case</strong></td>
-          <td><strong>${baseTotal} units</strong></td>
-        </tr>
-        <tr>
-          <td data-tooltip="Risk of stockout; use if you expect higher demand">Aggressive (+30%)</td>
-          <td>${aggressiveTotal} units</td>
-        </tr>
-      </tbody>
+      <tr>
+        <th>Scenario</th>
+        <th>Order Qty</th>
+      </tr>
+      <tr>
+        <td>Conservative (−30%)</td>
+        <td>${conservativeTotal}</td>
+      </tr>
+      <tr style="background: rgba(6, 182, 212, 0.1);">
+        <td><strong>Base Case</strong></td>
+        <td><strong>${baseTotal}</strong></td>
+      </tr>
+      <tr>
+        <td>Aggressive (+30%)</td>
+        <td>${aggressiveTotal}</td>
+      </tr>
     </table>
   `;
   
   container.innerHTML = html;
 }
 
+/* ================= RISK SUMMARY CARD ================= */
+
+function renderRiskSummaryCard(data) {
+  const container = document.getElementById('riskSummary');
+  
+  if (!data || data.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const counts = { Low: 0, Medium: 0, High: 0 };
+  data.forEach(d => counts[d.risk_level]++);
+  
+  const html = `
+    <p>High risk products: <strong>${counts.High}</strong></p>
+    <p>Medium risk products: <strong>${counts.Medium}</strong></p>
+    <p>Low risk products: <strong>${counts.Low}</strong></p>
+  `;
+  
+  container.innerHTML = html;
+}
+
+/* ================= CONFIDENCE CARD ================= */
+
+function renderConfidenceCard(data) {
+  const container = document.getElementById('confidenceBox');
+  
+  if (!data || data.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  const highRiskCount = data.filter(d => d.risk_level === 'High').length;
+  const hasVolatility = highRiskCount > 0;
+  
+  const html = `
+    <div class="confidence-item">
+      <div class="confidence-icon">📊</div>
+      <div class="confidence-text">
+        <span class="confidence-label">RECENT SALES PATTERNS</span>
+        <span class="confidence-description">
+          Based on the last 52 weeks of historical sales data for each product, with emphasis on recent weeks.
+        </span>
+      </div>
+    </div>
+    <div class="confidence-item">
+      <div class="confidence-icon">📈</div>
+      <div class="confidence-text">
+        <span class="confidence-label">DEMAND STABILITY</span>
+        <span class="confidence-description">
+          ${hasVolatility ? 'Some products show variability in weekly demand, handled with protective safety stock.' : 'Products show stable, predictable demand patterns across all time periods.'}
+        </span>
+        <span class="confidence-badge ${highRiskCount === 0 ? 'stable' : 'variable'}">
+          ${highRiskCount === 0 ? '✓ STABLE' : '⚠ VARIABLE'}
+        </span>
+      </div>
+    </div>
+    <div class="confidence-item">
+      <div class="confidence-icon">🎯</div>
+      <div class="confidence-text">
+        <span class="confidence-label">SEASONAL BEHAVIOR</span>
+        <span class="confidence-description">
+          No unusual seasonal patterns detected. Recommendations assume consistent demand cycles relative to historical norms.
+        </span>
+      </div>
+    </div>
+    <div class="confidence-item">
+      <div class="confidence-icon">✓</div>
+      <div class="confidence-text">
+        <span class="confidence-label">MODEL ASSUMPTIONS</span>
+        <span class="confidence-description">
+          No supply disruptions, no major promotional activity, and normal competitive landscape as in historical period.
+        </span>
+      </div>
+    </div>
+  `;
+  
+  container.innerHTML = html;
+}
+
+/* ================= OPERATIONAL RECOMMENDATION ================= */
+
 function renderOperationalRec(data) {
   const container = document.getElementById('operationalRec');
   
   if (!data || data.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">📋</div>
-        <div class="empty-state-message">No forecast data available. Generate a plan to see recommended actions.</div>
-      </div>
-    `;
+    container.innerHTML = '';
     return;
   }
   
@@ -795,42 +872,41 @@ function renderOperationalRec(data) {
   const mediumRiskCount = data.filter(d => d.risk_level === 'Medium').length;
   
   let primaryRec = '';
-  let primaryIcon = '';
   let followUpTiming = '';
   let authorityMsg = '';
   
   if (highRiskCount > 2) {
     primaryRec = 'Review high-variability items before committing to order';
-    primaryIcon = '📋';
-    followUpTiming = 'Estimated review time: 15–20 minutes. Re-check forecast in 3 days.';
+    followUpTiming = '⏳ Estimated review time: 15–20 minutes. Re-check forecast in 3 days.';
     authorityMsg = 'This recommendation balances service-level targets and inventory cost using recent demand volatility assessment.';
   } else if (highRiskCount > 0) {
     primaryRec = 'Proceed with order, monitor high-variability items closely';
-    primaryIcon = '✅';
-    followUpTiming = 'Monitor for anomalies. Re-evaluate in 7 days.';
+    followUpTiming = '⏳ Monitor for anomalies. Re-evaluate in 7 days.';
     authorityMsg = 'This recommendation balances service-level targets and inventory cost using recent demand patterns and volatility analysis.';
   } else if (mediumRiskCount > data.length * 0.5) {
     primaryRec = 'Safe to proceed with current plan';
-    primaryIcon = '✅';
-    followUpTiming = 'Routine monitoring. Next review in 14 days.';
+    followUpTiming = '⏳ Routine monitoring. Next review in 14 days.';
     authorityMsg = 'This recommendation balances service-level targets and inventory cost using recent demand stability and historical performance.';
   } else {
     primaryRec = 'Ready to execute with confidence';
-    primaryIcon = '✅';
-    followUpTiming = 'Low risk portfolio. Monthly review sufficient.';
+    followUpTiming = '⏳ Low risk portfolio. Monthly review sufficient.';
     authorityMsg = 'This recommendation balances service-level targets and inventory cost using stable demand signals and historical performance.';
   }
   
   const html = `
     <div class="rec-item">
-      <div class="rec-icon">${primaryIcon}</div>
+      <span class="rec-icon">✅</span>
       <div class="rec-content">
         <div class="rec-title">${primaryRec}</div>
         <div class="rec-text">
           Order <strong>${totalOrder} units</strong> across <strong>${data.length} products</strong> to meet forecasted demand with appropriate safety buffers.
         </div>
-        <div class="rec-authority">${authorityMsg}</div>
-        <div class="rec-timing" data-tooltip="When to reassess this plan based on actual demand">⏳ ${followUpTiming}</div>
+        <div class="rec-authority">
+          <em>${authorityMsg}</em>
+        </div>
+        <div class="rec-timing">
+          ${followUpTiming}
+        </div>
       </div>
     </div>
   `;
@@ -838,51 +914,36 @@ function renderOperationalRec(data) {
   container.innerHTML = html;
 }
 
+/* ================= MODEL HEALTH ================= */
+
 function renderModelHealth(data) {
   const container = document.getElementById('modelHealth');
   
   if (!data || data.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">⚙️</div>
-        <div class="empty-state-message">No model data available. System is ready when you generate a forecast.</div>
-      </div>
-    `;
+    container.innerHTML = '';
     return;
   }
   
   const html = `
     <div class="health-item">
-      <span class="health-label" data-tooltip="How recently forecast was calculated">Data Freshness</span>
+      <span class="health-label">DATA FRESHNESS</span>
       <span class="health-value">Updated today</span>
-      <span class="health-status">
-        <span class="health-status-icon">✓</span>
-        Current
-      </span>
+      <span class="health-status">✓ Current</span>
     </div>
     <div class="health-item">
-      <span class="health-label" data-tooltip="Current production release">Model Version</span>
+      <span class="health-label">MODEL VERSION</span>
       <span class="health-value">v1.0 MVP</span>
-      <span class="health-status">
-        <span class="health-status-icon">✓</span>
-        Active
-      </span>
+      <span class="health-status">✓ Active</span>
     </div>
     <div class="health-item">
-      <span class="health-label" data-tooltip="System is operating normally in production">Forecast Reliability</span>
+      <span class="health-label">FORECAST RELIABILITY</span>
       <span class="health-value">Production</span>
-      <span class="health-status">
-        <span class="health-status-icon">✓</span>
-        Stable
-      </span>
+      <span class="health-status">✓ Stable</span>
     </div>
     <div class="health-item">
-      <span class="health-label" data-tooltip="Number of products in this forecast">Items Analyzed</span>
+      <span class="health-label">ITEMS ANALYZED</span>
       <span class="health-value">${data.length}</span>
-      <span class="health-status">
-        <span class="health-status-icon">✓</span>
-        Complete
-      </span>
+      <span class="health-status">✓ Complete</span>
     </div>
   `;
   

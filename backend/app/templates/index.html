@@ -117,74 +117,114 @@
       <!-- ========== RESULTS SECTION ========== -->
       <section class="results">
 
-        <!-- ========== DEMAND FORECAST ========== -->
-        <div class="card">
-          <div class="card-header">
-            <div>
-              <h3>Demand Forecast</h3>
-              <p class="card-subtitle">Historical weekly demand with next period forecast</p>
+        <!-- ================= BUSINESS IMPACT & INACTION RISK (2-COLUMN) ================= -->
+        <div class="two-column-section">
+          
+          <!-- Business Impact Card -->
+          <div class="card">
+            <div class="card-header">
+              <h3>Business Impact</h3>
+              <p class="card-subtitle">WHAT THIS PLAN ACHIEVES</p>
+            </div>
+            <div id="businessImpact" class="impact-grid">
+              <!-- Dynamically populated -->
             </div>
           </div>
-          <canvas id="forecastChart" height="120"></canvas>
+
+          <!-- If No Action Is Taken Card -->
+          <div class="card">
+            <div class="card-header">
+              <h3>If No Action Is Taken</h3>
+              <p class="card-subtitle">RISK OF INACTION</p>
+            </div>
+            <div id="inactionRisk" class="inaction-grid">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
         </div>
 
-        <!-- ========== INVENTORY RECOMMENDATIONS ========== -->
+        <!-- ================= DEMAND FORECAST & SCENARIO ANALYSIS (2-COLUMN) ================= -->
+        <div class="two-column-section">
+
+          <!-- Forecast Chart -->
+          <div class="card">
+            <div class="card-header">
+              <h3>Demand Forecast</h3>
+              <p class="card-subtitle">EXPECTED DEMAND VS. RECOMMENDED ORDER</p>
+            </div>
+            <canvas id="forecastChart" height="120"></canvas>
+          </div>
+
+          <!-- Scenario Analysis -->
+          <div class="card">
+            <div class="card-header">
+              <h3>Scenario Analysis</h3>
+              <p class="card-subtitle">WHAT-IF SCENARIOS AT A GLANCE</p>
+            </div>
+            <div id="scenarioSnapshot" class="scenario-snapshot-table">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Inventory Recommendations Table -->
         <div class="card">
           <div class="card-header">
             <h3>Inventory Recommendations</h3>
+            <p class="card-subtitle">ITEM-LEVEL ORDER QUANTITIES</p>
           </div>
           <div id="resultsArea" class="placeholder">
           </div>
         </div>
 
-        <!-- ========== SCENARIO ANALYSIS ========== -->
+        <!-- Risk Assessment -->
         <div class="card">
           <div class="card-header">
-            <div>
-              <h3>Scenario Analysis</h3>
-              <p class="card-subtitle">Order recommendations across demand scenarios</p>
+            <h3>Risk Assessment</h3>
+            <p class="card-subtitle">PRODUCT-LEVEL VARIABILITY ANALYSIS</p>
+          </div>
+          <div id="riskSummary" class="risk-summary-content">
+            <!-- Dynamically populated -->
+          </div>
+          <div id="riskInsight" class="risk-insight hidden">
+            <span class="risk-insight-icon">💡</span>
+            <div class="risk-insight-text">
+              <!-- Dynamically populated -->
             </div>
           </div>
-          <div id="scenarioSnapshot" class="scenario-snapshot-table">
+        </div>
+
+        <!-- Forecast Confidence & Assumptions -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Forecast Confidence & Assumptions</h3>
+            <p class="card-subtitle">KEY FACTORS AND DATA QUALITY</p>
+          </div>
+          <div id="confidenceBox" class="confidence-items-list">
             <!-- Dynamically populated -->
           </div>
         </div>
 
-        <!-- ========== FORECAST CONFIDENCE ========== -->
+        <!-- Recommended Action -->
         <div class="card">
           <div class="card-header">
-            <div>
-              <h3>Forecast Confidence</h3>
-              <p class="card-subtitle">Reliability of demand predictions</p>
-            </div>
+            <h3>Recommended Action</h3>
+            <p class="card-subtitle">NEXT STEPS AND DECISION AUTHORITY</p>
           </div>
-          <div id="confidenceContent" class="confidence-content">
+          <div id="operationalRec" class="operational-rec">
             <!-- Dynamically populated -->
           </div>
         </div>
 
-        <!-- ========== RISK ASSESSMENT ========== -->
+        <!-- System Health -->
         <div class="card">
           <div class="card-header">
-            <div>
-              <h3>Risk Assessment</h3>
-              <p class="card-subtitle">Stockout and inventory risk profiles</p>
-            </div>
+            <h3>System Health</h3>
+            <p class="card-subtitle">MODEL STATUS AND DATA QUALITY</p>
           </div>
-          <div id="riskContent" class="risk-content">
-            <!-- Dynamically populated -->
-          </div>
-        </div>
-
-        <!-- ========== MODEL STATUS & ASSUMPTIONS ========== -->
-        <div class="card">
-          <div class="card-header">
-            <div>
-              <h3>Model Status & Assumptions</h3>
-              <p class="card-subtitle">Active model version, data freshness, and key parameters</p>
-            </div>
-          </div>
-          <div id="modelAssumptions" class="model-assumptions">
+          <div id="modelHealth" class="health-grid">
             <!-- Dynamically populated -->
           </div>
         </div>

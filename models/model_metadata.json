@@ -1,0 +1,19 @@
+{
+  "model_name": "RandomForestRegressor",
+  "trained_on": "2025-10-01",
+  "baseline_mae": 348.32,
+  "model_mae": 178.90,
+  "improvement_percent": 48.7,
+  "training_data": "weekly_time_series (100 store-product pairs, ~106 weeks each)",
+  "features_used": [
+    "lag_1_units_sold",
+    "lag_2_units_sold",
+    "lag_4_units_sold",
+    "rolling_4wk_avg",
+    "rolling_8wk_avg",
+    "rolling_4wk_std",
+    "avg_price",
+    "avg_discount",
+    "holiday_promotion"
+  ]
+}

@@ -1,0 +1,2 @@
+selected_model,selection_metric,mae,rmse,train_size,features_used
+Gradient_Boosting,MAE,250.62926625129137,340.8616024264394,9900,"['lag_1_units_sold', 'lag_2_units_sold', 'rolling_4wk_std']"

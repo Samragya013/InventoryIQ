@@ -117,168 +117,76 @@
       <!-- ========== RESULTS SECTION ========== -->
       <section class="results">
 
-        <!-- ================= DECISION ZONE (TOP PRIORITY) ================= -->
-        <div class="decision-zone">
-          <div class="card card-decision">
-            <div class="decision-header">
-              <div class="decision-status">
-                <span class="decision-icon">✅</span>
-                <span class="decision-title">Ready to Execute with Confidence</span>
-              </div>
+        <!-- ========== DEMAND FORECAST ========== -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Demand Forecast</h3>
+              <p class="card-subtitle">Historical weekly demand with next period forecast</p>
             </div>
-            <div class="decision-content">
-              <div class="decision-main">
-                <div class="decision-label">Recommendation</div>
-                <div class="decision-value" id="decisionValue">Order 1,518 units across 1 product</div>
-              </div>
-              <div class="decision-badges">
-                <span class="badge badge-risk" id="decisionRiskBadge">⚪ Low Risk</span>
-                <span class="badge badge-confidence" id="decisionConfidenceBadge">🟢 High (87%)</span>
-              </div>
-              <div class="decision-authority" id="decisionAuthority">
-                Stable demand + low volatility = low execution risk. Proceed immediately.
-              </div>
-              <button class="decision-cta">Create Purchase Order</button>
-            </div>
+          </div>
+          <canvas id="forecastChart" height="120"></canvas>
+        </div>
+
+        <!-- ========== INVENTORY RECOMMENDATIONS ========== -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Inventory Recommendations</h3>
+          </div>
+          <div id="resultsArea" class="placeholder">
           </div>
         </div>
 
-        <!-- ================= TIER 1: IMMEDIATE EXECUTIVE SIGNALS ================= -->
-        <div class="tier-1-executive">
-
-          <!-- Business Impact Summary Card (TIER 1 - DOMINANT) -->
-          <div class="card card-tier-1">
-            <div class="card-header">
-              <div>
-                <h3>Business Impact</h3>
-                <p class="card-subtitle">What this plan achieves</p>
-              </div>
-            </div>
-            <div id="businessImpact" class="impact-grid">
-              <!-- Dynamically populated -->
+        <!-- ========== SCENARIO ANALYSIS ========== -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Scenario Analysis</h3>
+              <p class="card-subtitle">Order recommendations across demand scenarios</p>
             </div>
           </div>
-
-          <!-- If No Action Taken Card (TIER 1 - COUNTERFACTUAL RISK) -->
-          <div class="card card-tier-1 card-warning">
-            <div class="card-header">
-              <div>
-                <h3>If No Action Is Taken</h3>
-                <p class="card-subtitle">Risk of inaction</p>
-              </div>
-            </div>
-            <div id="inactionRisk" class="inaction-grid">
-              <!-- Dynamically populated -->
-            </div>
+          <div id="scenarioSnapshot" class="scenario-snapshot-table">
+            <!-- Dynamically populated -->
           </div>
-
         </div>
 
-        <!-- ================= TIER 2: EXPLORATORY INSIGHTS ================= -->
-        <div class="tier-2-exploratory">
-
-          <!-- Demand Forecast Overview (TIER 2) -->
-          <div class="card card-tier-2">
-            <div class="card-header">
-              <div>
-                <h3>Demand Forecast</h3>
-                <p class="card-subtitle">Expected demand vs. recommended order</p>
-              </div>
-            </div>
-            <canvas id="forecastChart" height="120"></canvas>
-          </div>
-
-          <!-- Scenario Snapshot Card (TIER 2) -->
-          <div class="card card-tier-2">
-            <div class="card-header">
-              <div>
-                <h3>Scenario Analysis</h3>
-                <p class="card-subtitle">What-if scenarios at a glance</p>
-              </div>
-            </div>
-            <div id="scenarioSnapshot" class="scenario-snapshot-table">
-              <!-- Dynamically populated -->
+        <!-- ========== FORECAST CONFIDENCE ========== -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Forecast Confidence</h3>
+              <p class="card-subtitle">Reliability of demand predictions</p>
             </div>
           </div>
-
+          <div id="confidenceContent" class="confidence-content">
+            <!-- Dynamically populated -->
+          </div>
         </div>
 
-        <!-- ================= TIER 3: TRUST SIGNALS (CONSOLIDATED) ================= -->
-        <div class="tier-3-trust">
-
-          <!-- Inventory Recommendations Table -->
-          <div class="card card-tier-3">
-            <div class="card-header">
-              <div>
-                <h3>Inventory Recommendations</h3>
-                <p class="card-subtitle">Item-level order quantities</p>
-              </div>
-            </div>
-            <div id="resultsArea" class="placeholder">
+        <!-- ========== RISK ASSESSMENT ========== -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Risk Assessment</h3>
+              <p class="card-subtitle">Stockout and inventory risk profiles</p>
             </div>
           </div>
+          <div id="riskContent" class="risk-content">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
 
-          <!-- CONSOLIDATED: Confidence & Trust Signals -->
-          <div class="card card-tier-3">
-            <div class="card-header">
-              <div>
-                <h3>Why You Can Trust This</h3>
-                <p class="card-subtitle">Confidence, risk, and model health</p>
-              </div>
-              <div class="overall-confidence" id="overallConfidence">
-                <span class="confidence-score">87%</span>
-                <span class="confidence-label">Confidence</span>
-              </div>
-            </div>
-            
-            <!-- Trust Summary -->
-            <div class="trust-summary">
-              <div class="trust-row">
-                <span class="trust-icon">✓</span>
-                <span class="trust-item">
-                  <strong>Risk Profile:</strong> Low (0 high-risk items)
-                </span>
-              </div>
-              <div class="trust-row">
-                <span class="trust-icon">✓</span>
-                <span class="trust-item">
-                  <strong>Data Quality:</strong> Current (52 weeks)
-                </span>
-              </div>
-              <div class="trust-row">
-                <span class="trust-icon">✓</span>
-                <span class="trust-item">
-                  <strong>Model Status:</strong> Production (v1.0)
-                </span>
-              </div>
-              <div class="trust-row">
-                <span class="trust-icon">✓</span>
-                <span class="trust-item">
-                  <strong>Forecast Reliability:</strong> Stable
-                </span>
-              </div>
-            </div>
-
-            <!-- Confidence Drivers -->
-            <div class="confidence-drivers">
-              <div class="drivers-label">Why this confidence score?</div>
-              <ul class="drivers-list" id="driversContent">
-                <!-- Dynamically populated -->
-              </ul>
-            </div>
-
-            <!-- Collapsible Details -->
-            <button class="toggle-details" id="toggleDetails">
-              <span>Learn More</span>
-              <span class="toggle-arrow">▼</span>
-            </button>
-            <div class="details-section hidden" id="detailsSection">
-              <div class="details-content" id="detailsContent">
-                <!-- Dynamically populated -->
-              </div>
+        <!-- ========== MODEL STATUS & ASSUMPTIONS ========== -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Model Status & Assumptions</h3>
+              <p class="card-subtitle">Active model version, data freshness, and key parameters</p>
             </div>
           </div>
-
+          <div id="modelAssumptions" class="model-assumptions">
+            <!-- Dynamically populated -->
+          </div>
         </div>
 
       </section>

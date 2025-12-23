@@ -50,10 +50,9 @@
 
       <!-- ========== HEADER ========== -->
       <header class="header">
-        <h1>Inventory Planning Dashboard</h1>
+        <h1>Inventory Plan</h1>
         <p>
-          Generate risk-adjusted inventory order recommendations using
-          demand forecasting intelligence.
+          Review risk-adjusted order recommendations to balance service levels and inventory cost.
         </p>
       </header>
 
@@ -62,31 +61,62 @@
         <span id="summaryText"></span>
       </div>
 
+      <!-- ========== MARKET FOCUS CARD ========== -->
+      <section class="market-focus-section">
+        <div class="market-focus-card">
+          <div class="market-focus-header">
+            <div class="market-focus-title">
+              <span class="market-focus-icon">🎯</span>
+              <h3>Operational Focus</h3>
+            </div>
+            <div class="market-filter-control">
+              <label for="marketFilter" class="market-filter-label">View:</label>
+              <select id="marketFilter" class="market-filter-select">
+                <option value="all">All Markets</option>
+              </select>
+            </div>
+          </div>
+          <p class="market-focus-subtitle">WHERE TO DIRECT ATTENTION</p>
+          <div id="marketFocusContent" class="market-focus-content">
+            <div class="market-focus-loading">Loading market intelligence...</div>
+          </div>
+        </div>
+      </section>
+
       <!-- ========== CONTROLS CARD ========== -->
       <section class="controls-card">
-        <h3>Planning Controls</h3>
+        <h3>Generate Plan</h3>
+        <p class="controls-subtitle">Select a market and product category to generate a new inventory plan.</p>
 
-        <div class="controls-grid">
+        <div class="controls-grid enterprise-controls">
 
-          <!-- Store -->
-          <div class="control">
-            <label for="storeSelect">Store</label>
-            <select id="storeSelect">
-              <option value="">Select store</option>
+          <!-- Market Selector (Primary) -->
+          <div class="control control-primary">
+            <label for="marketSelect">
+              <span class="control-icon">🌍</span>
+              Market
+            </label>
+            <select id="marketSelect">
+              <option value="all">All Markets</option>
             </select>
+            <span class="control-hint">Primary filter for all insights</span>
           </div>
 
-          <!-- Products -->
-          <div class="control">
-            <label for="productSelect">
-              Products
-              <span id="productCount" class="product-count-badge">(0 selected)</span>
+          <!-- Product Category (Secondary) -->
+          <div class="control control-secondary">
+            <label for="categorySelect">
+              <span class="control-icon">📦</span>
+              Product Category
+              <span class="optional-badge">Optional</span>
             </label>
-            <select id="productSelect" multiple title="Hold Ctrl/Cmd to select multiple products"></select>
+            <select id="categorySelect">
+              <option value="all">All Categories</option>
+            </select>
+            <span class="control-hint">Filters inventory recommendations</span>
           </div>
 
           <!-- Action Button -->
-          <button id="generateBtn" class="primary-btn" disabled>
+          <button id="generateBtn" class="primary-btn">
             Generate Inventory Plan
           </button>
 
@@ -95,7 +125,7 @@
         <!-- Scenario Controls (Hidden until plan generated) -->
         <div id="scenarioSection" class="scenario-section hidden">
           <div class="scenario-header">
-            <h4>Demand Multiplier</h4>
+            <h4>Demand Scenario</h4>
             <span class="scenario-info" title="Simulate demand scenarios">?</span>
           </div>
           <div class="scenario-controls">
@@ -123,8 +153,8 @@
           <!-- Business Impact Card -->
           <div class="card">
             <div class="card-header">
-              <h3>Business Impact</h3>
-              <p class="card-subtitle">WHAT THIS PLAN ACHIEVES</p>
+              <h3>Plan Impact</h3>
+              <p class="card-subtitle">WHAT THIS PLAN DELIVERS</p>
             </div>
             <div id="businessImpact" class="impact-grid">
               <!-- Dynamically populated -->
@@ -134,8 +164,8 @@
           <!-- If No Action Is Taken Card -->
           <div class="card">
             <div class="card-header">
-              <h3>If No Action Is Taken</h3>
-              <p class="card-subtitle">RISK OF INACTION</p>
+              <h3>Risk of Inaction</h3>
+              <p class="card-subtitle">WHAT HAPPENS IF YOU WAIT</p>
             </div>
             <div id="inactionRisk" class="inaction-grid">
               <!-- Dynamically populated -->
@@ -150,8 +180,8 @@
           <!-- Forecast Chart -->
           <div class="card">
             <div class="card-header">
-              <h3>Demand Forecast</h3>
-              <p class="card-subtitle">EXPECTED DEMAND VS. RECOMMENDED ORDER</p>
+              <h3>Demand vs. Order Plan</h3>
+              <p class="card-subtitle">EXPECTED DEMAND AND RECOMMENDED ORDER QUANTITIES</p>
             </div>
             <canvas id="forecastChart" height="120"></canvas>
           </div>
@@ -159,8 +189,8 @@
           <!-- Scenario Analysis -->
           <div class="card">
             <div class="card-header">
-              <h3>Scenario Analysis</h3>
-              <p class="card-subtitle">WHAT-IF SCENARIOS AT A GLANCE</p>
+              <h3>Scenario Snapshot</h3>
+              <p class="card-subtitle">HOW ORDER TOTALS CHANGE UNDER DIFFERENT DEMAND SCENARIOS</p>
             </div>
             <div id="scenarioSnapshot" class="scenario-snapshot-table">
               <!-- Dynamically populated -->
@@ -172,8 +202,8 @@
         <!-- Inventory Recommendations Table -->
         <div class="card">
           <div class="card-header">
-            <h3>Inventory Recommendations</h3>
-            <p class="card-subtitle">ITEM-LEVEL ORDER QUANTITIES</p>
+            <h3>Recommended Orders</h3>
+            <p class="card-subtitle">PRODUCT-LEVEL ORDER QUANTITIES</p>
           </div>
           <div id="resultsArea" class="placeholder">
           </div>
@@ -182,8 +212,8 @@
         <!-- Risk Assessment -->
         <div class="card">
           <div class="card-header">
-            <h3>Risk Assessment</h3>
-            <p class="card-subtitle">PRODUCT-LEVEL VARIABILITY ANALYSIS</p>
+            <h3>Order Risk Summary</h3>
+            <p class="card-subtitle">PRODUCTS WITH UNSTABLE DEMAND</p>
           </div>
           <div id="riskSummary" class="risk-summary-content">
             <!-- Dynamically populated -->
@@ -199,8 +229,8 @@
         <!-- Forecast Confidence & Assumptions -->
         <div class="card">
           <div class="card-header">
-            <h3>Forecast Confidence & Assumptions</h3>
-            <p class="card-subtitle">KEY FACTORS AND DATA QUALITY</p>
+            <h3>Why This Recommendation Is Reliable</h3>
+            <p class="card-subtitle">PLANNING ASSUMPTIONS AND DATA BASIS</p>
           </div>
           <div id="confidenceBox" class="confidence-items-list">
             <!-- Dynamically populated -->
@@ -210,8 +240,8 @@
         <!-- Recommended Action -->
         <div class="card">
           <div class="card-header">
-            <h3>Recommended Action</h3>
-            <p class="card-subtitle">NEXT STEPS AND DECISION AUTHORITY</p>
+            <h3>Decision & Next Steps</h3>
+            <p class="card-subtitle">PRIMARY RECOMMENDATION AND FOLLOW-UP</p>
           </div>
           <div id="operationalRec" class="operational-rec">
             <!-- Dynamically populated -->
@@ -221,8 +251,8 @@
         <!-- System Health -->
         <div class="card">
           <div class="card-header">
-            <h3>System Health</h3>
-            <p class="card-subtitle">MODEL STATUS AND DATA QUALITY</p>
+            <h3>System Status</h3>
+            <p class="card-subtitle">DATA AND PLANNING ENGINE STATUS</p>
           </div>
           <div id="modelHealth" class="health-grid">
             <!-- Dynamically populated -->

@@ -1,0 +1,4 @@
+market,avg_weekly_demand,total_demand,demand_volatility,inventory_strategy,norm_demand,norm_volatility,market_pressure_index
+APAC,940.6063131313131,3724801,94.76243358080274,Stable demand — optimize inventory to reduce holding cost.,0.9791708070060325,0.9136344039200273,0.9595098860802309
+Europe,946.8010101010101,3749332,91.6343402204804,Stable demand — optimize inventory to reduce holding cost.,0.9856194841478894,0.8834754727415938,0.9549762807260007
+North America,960.6151515151514,1902018,103.72029903232227,Stable demand — optimize inventory to reduce holding cost.,1.0,1.0,1.0

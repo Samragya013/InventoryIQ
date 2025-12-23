@@ -1,17 +1,29 @@
-const storeSelect = document.getElementById("storeSelect");
-const productSelect = document.getElementById("productSelect");
-const generateBtn = document.getElementById("generateBtn");
-const resultsArea = document.getElementById("resultsArea");
-const riskSummary = document.getElementById("riskSummary");
-const summaryBar = document.getElementById("summaryBar");
-const summaryText = document.getElementById("summaryText");
+/**
+ * InventoryIQ - Enterprise Inventory Planning Dashboard
+ * =====================================================
+ * 
+ * Market-driven inventory intelligence platform.
+ * Uses market and category controls (no raw IDs exposed).
+ */
+
+/* ================= DOM REFERENCES (lazy loaded) ================= */
+let marketSelect = null;
+let categorySelect = null;
+let generateBtn = null;
+let resultsArea = null;
+let riskSummary = null;
+let summaryBar = null;
+let summaryText = null;
 
 let forecastChart = null;
+let currentPlanData = null;
 
 /* ================= PARTICLE BACKGROUND ================= */
 
 function createParticles() {
   const container = document.getElementById("particleContainer");
+  if (!container) return;
+  
   const particleCount = 30;
   
   for (let i = 0; i < particleCount; i++) {
@@ -36,156 +48,491 @@ function createParticles() {
   }
 }
 
-// Create particles on load
-createParticles();
-
 /* ================= INITIALIZE APP ================= */
 
-// Ensure DOM is ready before loading data
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initializeApp);
 } else {
+  // DOM already loaded, run immediately
   initializeApp();
 }
 
 function initializeApp() {
-  loadStores();
+  // Initialize DOM references after DOM is ready
+  marketSelect = document.getElementById("marketSelect");
+  categorySelect = document.getElementById("categorySelect");
+  generateBtn = document.getElementById("generateBtn");
+  resultsArea = document.getElementById("resultsArea");
+  riskSummary = document.getElementById("riskSummary");
+  summaryBar = document.getElementById("summaryBar");
+  summaryText = document.getElementById("summaryText");
+  
+  // Create particles
+  createParticles();
+  
+  // Load data and attach listeners
+  loadMarkets();
+  loadCategories();
+  loadMarketFocus();
   attachEventListeners();
+  attachMarketFilterListener();
+  renderInitialStates();
 }
 
-/* ================= LOAD STORES ================= */
+/* ================= INITIAL STATES (FALLBACK) ================= */
 
-function loadStores() {
-  fetch("/api/v1/stores")
-    .then(res => {
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+function renderInitialStates() {
+  // Show market-wide overview as default state for all cards
+  renderBusinessImpactFallback();
+  renderInactionRiskFallback();
+  renderScenarioSnapshotFallback();
+  renderForecastFallback();
+  renderResultsFallback();
+  renderRiskSummaryFallback();
+  renderConfidenceFallback();
+  renderOperationalRecFallback();
+  renderModelHealthFallback();
+}
+
+function renderBusinessImpactFallback() {
+  const container = document.getElementById('businessImpact');
+  if (!container) return;
+  
+  container.innerHTML = `
+    <div class="fallback-state">
+      <div class="fallback-icon">📊</div>
+      <div class="fallback-text">
+        <span class="fallback-title">Market-wide Overview</span>
+        <span class="fallback-description">Generate a plan to see projected business impact</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderInactionRiskFallback() {
+  const container = document.getElementById('inactionRisk');
+  if (!container) return;
+  
+  container.innerHTML = `
+    <div class="fallback-state">
+      <div class="fallback-icon">⚠️</div>
+      <div class="fallback-text">
+        <span class="fallback-title">Risk Assessment Pending</span>
+        <span class="fallback-description">Generate a plan to evaluate inaction risks</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderScenarioSnapshotFallback() {
+  const container = document.getElementById('scenarioSnapshot');
+  if (!container) return;
+  
+  container.innerHTML = `
+    <div class="fallback-state">
+      <div class="fallback-icon">🔄</div>
+      <div class="fallback-text">
+        <span class="fallback-title">Scenarios Ready</span>
+        <span class="fallback-description">What-if analysis will appear after plan generation</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderForecastFallback() {
+  const ctx = document.getElementById("forecastChart");
+  if (!ctx) return;
+  
+  // Clear existing chart
+  if (forecastChart) {
+    forecastChart.destroy();
+    forecastChart = null;
+  }
+  
+  // Create empty chart with message
+  forecastChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: ["Awaiting Plan"],
+      datasets: [{
+        label: "Forecast pending",
+        data: [0],
+        backgroundColor: "rgba(100, 116, 139, 0.3)",
+        borderColor: "rgba(100, 116, 139, 0.5)",
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        title: {
+          display: true,
+          text: "Select market and generate plan to view forecast",
+          color: "#94a3b8",
+          font: { size: 14, weight: 400 }
+        }
+      },
+      scales: {
+        x: { ticks: { color: "#64748b" }, grid: { display: false } },
+        y: { ticks: { color: "#64748b" }, grid: { color: "rgba(100, 116, 139, 0.1)" } }
       }
+    }
+  });
+}
+
+function renderResultsFallback() {
+  const container = document.getElementById('resultsArea');
+  if (!container) return;
+  
+  container.className = "placeholder";
+  container.innerHTML = `
+    <div class="fallback-state centered">
+      <div class="fallback-icon large">📋</div>
+      <div class="fallback-text">
+        <span class="fallback-title">Ready to Generate Plan</span>
+        <span class="fallback-description">Select a market and category, then click "Generate Inventory Plan"</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderRiskSummaryFallback() {
+  const container = document.getElementById('riskSummary');
+  if (!container) return;
+  
+  container.innerHTML = `
+    <div class="fallback-state">
+      <div class="fallback-icon">📈</div>
+      <div class="fallback-text">
+        <span class="fallback-title">Risk Analysis</span>
+        <span class="fallback-description">Product-level risk assessment pending</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderConfidenceFallback() {
+  const container = document.getElementById('confidenceBox');
+  if (!container) return;
+  
+  container.innerHTML = `
+    <div class="confidence-item fallback">
+      <div class="confidence-icon">🎯</div>
+      <div class="confidence-text">
+        <span class="confidence-label">PLANNING ASSUMPTIONS</span>
+        <span class="confidence-description">
+            Key reasoning will appear after you generate a plan.
+        </span>
+      </div>
+    </div>
+  `;
+}
+
+function renderOperationalRecFallback() {
+  const container = document.getElementById('operationalRec');
+  if (!container) return;
+  
+  container.innerHTML = `
+    <div class="fallback-state">
+      <div class="fallback-icon">✅</div>
+      <div class="fallback-text">
+        <span class="fallback-title">Action Recommendations</span>
+        <span class="fallback-description">Next steps will be provided after plan generation</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderModelHealthFallback() {
+  const container = document.getElementById('modelHealth');
+  if (!container) return;
+  
+  container.innerHTML = `
+    <div class="health-item">
+      <span class="health-label">SYSTEM STATUS</span>
+      <span class="health-value">Online</span>
+      <span class="health-status">✓ Ready</span>
+    </div>
+    <div class="health-item">
+      <span class="health-label">MODEL VERSION</span>
+      <span class="health-value">v1.0 Enterprise</span>
+      <span class="health-status">✓ Active</span>
+    </div>
+  `;
+}
+
+/* ================= LOADING STATES ================= */
+
+function showLoadingState(containerId, message = "Loading...") {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  
+  container.innerHTML = `
+    <div class="loading-state">
+      <div class="loading-spinner"></div>
+      <span class="loading-text">${message}</span>
+    </div>
+  `;
+}
+
+/* ================= MARKET FOCUS ================= */
+
+function loadMarketFocus(marketFilter = "all") {
+  const marketFocusContent = document.getElementById("marketFocusContent");
+  const marketFilterSelect = document.getElementById("marketFilter");
+  
+  const url = marketFilter && marketFilter !== "all" 
+    ? `/api/v1/market/summary?market=${encodeURIComponent(marketFilter)}`
+    : "/api/v1/market/summary";
+  
+  fetch(url)
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       return res.json();
     })
-    .then(stores => {
-      console.log("Stores loaded:", stores);
-      if (!Array.isArray(stores) || stores.length === 0) {
-        console.error("No stores returned from API");
-        storeSelect.innerHTML = '<option value="">No stores available</option>';
-        return;
+    .then(data => {
+      renderMarketFocus(data);
+      
+      if (marketFilter === "all" && marketFilterSelect && marketFilterSelect.options.length <= 1) {
+        populateMarketFilter(data);
       }
-      stores.forEach(store => {
-        const opt = document.createElement("option");
-        opt.value = store;
-        opt.textContent = store;
-        storeSelect.appendChild(opt);
-      });
-      console.log("Stores populated successfully");
     })
     .catch(error => {
-      console.error("Error loading stores:", error);
-      storeSelect.innerHTML = '<option value="">Error loading stores</option>';
+      console.error("Error loading market focus:", error);
+      if (marketFocusContent) {
+        marketFocusContent.innerHTML = `
+          <div class="market-focus-error">
+            Unable to load market intelligence. Please refresh the page.
+          </div>
+        `;
+      }
+    });
+}
+
+function populateMarketFilter(data) {
+  const marketFilterSelect = document.getElementById("marketFilter");
+  if (!marketFilterSelect) return;
+  
+  data.forEach(market => {
+    const opt = document.createElement("option");
+    opt.value = market.market;
+    opt.textContent = market.market;
+    marketFilterSelect.appendChild(opt);
+  });
+}
+
+function attachMarketFilterListener() {
+  const marketFilterSelect = document.getElementById("marketFilter");
+  if (!marketFilterSelect) return;
+  
+  marketFilterSelect.addEventListener("change", () => {
+    const selectedMarket = marketFilterSelect.value;
+    loadMarketFocus(selectedMarket);
+  });
+}
+
+function renderMarketFocus(data) {
+  const marketFocusContent = document.getElementById("marketFocusContent");
+  if (!marketFocusContent) return;
+  
+  if (!data || data.length === 0) {
+    marketFocusContent.innerHTML = `
+      <div class="market-focus-empty">
+        No market data available for the selected filter.
+      </div>
+    `;
+    return;
+  }
+  
+  let html = '<div class="market-focus-grid">';
+  
+  data.forEach(market => {
+    const attentionClass = market.attention_level.toLowerCase();
+    const attentionIcon = getAttentionIcon(market.attention_level);
+    
+    html += `
+      <div class="market-focus-item ${attentionClass}">
+        <div class="market-focus-item-header">
+          <span class="market-name">${market.market}</span>
+          <span class="attention-badge ${attentionClass}">
+            ${attentionIcon} ${market.attention_level}
+          </span>
+        </div>
+        <div class="market-focus-item-body">
+          <p class="market-explanation">${market.explanation}</p>
+          <div class="market-meta">
+            <span class="demand-trend">${market.demand_trend}</span>
+            <span class="strategy-hint">${market.strategy_recommendation}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  html += '</div>';
+  marketFocusContent.innerHTML = html;
+}
+
+function getAttentionIcon(level) {
+  switch (level) {
+    case "High": return "🔴";
+    case "Medium": return "🟡";
+    case "Low": return "🟢";
+    default: return "⚪";
+  }
+}
+
+/* ================= LOAD MARKETS ================= */
+
+function loadMarkets() {
+  fetch("/api/v1/markets")
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      return res.json();
+    })
+    .then(markets => {
+      if (!marketSelect) return;
+      
+      if (!Array.isArray(markets) || markets.length === 0) {
+        console.warn("No markets returned from API");
+        return;
+      }
+      
+      markets.forEach(market => {
+        const opt = document.createElement("option");
+        opt.value = market;
+        opt.textContent = market;
+        marketSelect.appendChild(opt);
+      });
+    })
+    .catch(error => {
+      console.error("Error loading markets:", error);
+    });
+}
+
+/* ================= LOAD CATEGORIES ================= */
+
+function loadCategories() {
+  fetch("/api/v1/categories")
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      return res.json();
+    })
+    .then(categories => {
+      if (!categorySelect) return;
+      
+      if (!Array.isArray(categories) || categories.length === 0) {
+        console.warn("No categories returned from API");
+        return;
+      }
+      
+      categories.forEach(cat => {
+        const opt = document.createElement("option");
+        opt.value = cat.id;
+        opt.textContent = cat.name;
+        categorySelect.appendChild(opt);
+      });
+    })
+    .catch(error => {
+      console.error("Error loading categories:", error);
     });
 }
 
 /* ================= ATTACH EVENT LISTENERS ================= */
 
 function attachEventListeners() {
-  /* Store Change Handler */
-  storeSelect.addEventListener("change", () => {
-  productSelect.innerHTML = "";
-  generateBtn.disabled = true;
-  summaryBar.classList.add("hidden");
-
-  if (!storeSelect.value) return;
-
-  fetch(`/api/v1/products/${storeSelect.value}`)
-    .then(res => {
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      return res.json();
-    })
-    .then(products => {
-      if (!Array.isArray(products) || products.length === 0) {
-        console.warn("No products returned for store:", storeSelect.value);
-        return;
-      }
-      products.forEach(prod => {
-        const opt = document.createElement("option");
-        opt.value = prod;
-        opt.textContent = prod;
-        productSelect.appendChild(opt);
-      });
-    })
-    .catch(error => {
-      console.error("Error loading products:", error);
-    });
-});
-
-  /* Product Change Handler */
-  productSelect.addEventListener("change", () => {
-    const selectedCount = productSelect.selectedOptions.length;
-    generateBtn.disabled = selectedCount === 0;
-    
-    // Update product count badge
-    const countBadge = document.getElementById("productCount");
-    if (countBadge) {
-      countBadge.textContent = `(${selectedCount} selected)`;
-      if (selectedCount > 0) {
-        countBadge.classList.add("active");
-      } else {
-        countBadge.classList.remove("active");
-      }
-    }
-  });
-
+  if (!generateBtn) return;
+  
   /* Generate Button Handler */
-  generateBtn.addEventListener("click", () => {
-    const items = Array.from(productSelect.selectedOptions).map(opt => ({
-      store_id: storeSelect.value,
-      product_id: opt.value
-    }));
-
-    resultsArea.className = "placeholder";
-    resultsArea.textContent = "Generating inventory plan...";
-    riskSummary.textContent = "";
-    summaryBar.classList.add("hidden");
-
-    fetch("/api/v1/forecast/batch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items })
-    })
-      .then(res => res.json())
-      .then(data => {
-        // Store original forecast for scenario calculation
-        window.originalForecastData = JSON.parse(JSON.stringify(data));
-        
-        renderChart(data);
-        renderTable(data);
-        renderBusinessImpactCard(data);
-        renderInactionRiskCard(data);
-        renderScenarioSnapshot(data);
-        renderRiskSummaryCard(data);
-        renderConfidenceCard(data);
-        renderOperationalRec(data);
-        renderModelHealth(data);
-        updateSummary(data);
-        
-        // Show scenario controls and attach handlers
-        document.getElementById("scenarioSection").classList.remove("hidden");
-        attachScenarioHandlers(items, data);
-
-        // Prevent repeated runs unless inputs change
-        generateBtn.disabled = true;
-      });
-  });
+  generateBtn.addEventListener("click", generateInventoryPlan);
 }
 
-function attachScenarioHandlers(items, originalData) {
+/* ================= GENERATE INVENTORY PLAN ================= */
+
+function generateInventoryPlan() {
+  const market = marketSelect ? marketSelect.value : "all";
+  const category = categorySelect ? categorySelect.value : "all";
+  
+  // Show loading states
+  showLoadingState('businessImpact', 'Calculating business impact...');
+  showLoadingState('inactionRisk', 'Analyzing risk factors...');
+  showLoadingState('scenarioSnapshot', 'Building scenarios...');
+  showLoadingState('riskSummary', 'Assessing risk levels...');
+  
+  if (resultsArea) {
+    resultsArea.className = "placeholder";
+    resultsArea.innerHTML = `
+      <div class="loading-state">
+        <div class="loading-spinner"></div>
+        <span class="loading-text">Generating inventory plan...</span>
+      </div>
+    `;
+  }
+  
+  // Build API URL with filters
+  let url = `/api/v1/inventory/plan?limit=20`;
+  if (market && market !== "all") {
+    url += `&market=${encodeURIComponent(market)}`;
+  }
+  if (category && category !== "all") {
+    url += `&category=${encodeURIComponent(category)}`;
+  }
+  
+  // Fetch both plan and metrics in parallel
+  Promise.all([
+    fetch(url).then(res => res.json()),
+    fetch(`/api/v1/inventory/metrics?market=${encodeURIComponent(market)}&category=${encodeURIComponent(category)}`).then(res => res.json())
+  ])
+    .then(([planData, metricsData]) => {
+      currentPlanData = planData;
+      
+      // Render all sections
+      renderChart(planData.recommendations);
+      renderTable(planData.recommendations);
+      renderBusinessImpactCard(metricsData.business_impact, metricsData.context);
+      renderInactionRiskCard(metricsData.inaction_risk, metricsData.context);
+      renderScenarioSnapshot(planData.recommendations);
+      renderRiskSummaryCard(planData.summary);
+      renderConfidenceCard(planData.summary);
+      renderOperationalRec(planData.summary, planData.recommendations);
+      renderModelHealth(planData.summary);
+      updateSummary(planData.summary, planData.recommendations);
+      
+      // Show scenario controls
+      const scenarioSection = document.getElementById("scenarioSection");
+      if (scenarioSection) {
+        scenarioSection.classList.remove("hidden");
+        attachScenarioHandlers(planData.recommendations);
+      }
+    })
+    .catch(error => {
+      console.error("Error generating plan:", error);
+      renderResultsFallback();
+      renderBusinessImpactFallback();
+      renderInactionRiskFallback();
+    });
+}
+
+/* ================= SCENARIO HANDLERS ================= */
+
+function attachScenarioHandlers(originalData) {
   const multiplierInput = document.getElementById("demandMultiplier");
   const multiplierValue = document.getElementById("multiplierValue");
   const multiplierContext = document.getElementById("multiplierContext");
   const presetBtns = document.querySelectorAll(".preset-btn");
   
-  // Helper function to get scenario description
+  if (!multiplierInput) return;
+
+  // Small debounce for smoother chart updates and to avoid rapid re-renders
+  function debounce(fn, delay) {
+    let t;
+    return function(...args) {
+      clearTimeout(t);
+      t = setTimeout(() => fn.apply(this, args), delay);
+    };
+  }
+  
   function getScenarioDescription(value) {
     if (value < 0.8) return "Low demand scenario (risk of overstock)";
     if (value === 1.0) return "Base case (current forecast)";
@@ -193,136 +540,119 @@ function attachScenarioHandlers(items, originalData) {
     return "Alternative scenario";
   }
   
-  // Update display on slider change
-  multiplierInput.addEventListener("input", () => {
-    const value = parseFloat(multiplierInput.value);
-    multiplierValue.textContent = value.toFixed(1) + "x";
-    multiplierContext.textContent = getScenarioDescription(value);
-    applyScenario(items, originalData, value);
+  // Remove existing listeners by cloning
+  const newMultiplierInput = multiplierInput.cloneNode(true);
+  multiplierInput.parentNode.replaceChild(newMultiplierInput, multiplierInput);
+  
+  const applyDebounced = debounce((value) => {
+    if (multiplierValue) multiplierValue.textContent = value.toFixed(1) + "x";
+    if (multiplierContext) multiplierContext.textContent = getScenarioDescription(value);
+    applyScenario(originalData, value);
+  }, 150);
+
+  newMultiplierInput.addEventListener("input", () => {
+    const value = parseFloat(newMultiplierInput.value);
+    applyDebounced(value);
   });
   
-  // Preset buttons
   presetBtns.forEach(btn => {
-    btn.addEventListener("click", () => {
-      const value = parseFloat(btn.dataset.value);
-      multiplierInput.value = value;
-      multiplierValue.textContent = value.toFixed(1) + "x";
-      multiplierContext.textContent = getScenarioDescription(value);
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    
+    newBtn.addEventListener("click", () => {
+      const value = parseFloat(newBtn.dataset.value);
+      newMultiplierInput.value = value;
+      if (multiplierValue) multiplierValue.textContent = value.toFixed(1) + "x";
+      if (multiplierContext) multiplierContext.textContent = getScenarioDescription(value);
       
-      // Update active state
-      presetBtns.forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
+      document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
+      newBtn.classList.add("active");
       
-      applyScenario(items, originalData, value);
+      applyScenario(originalData, value);
     });
   });
   
   // Set initial active button
-  presetBtns.forEach(btn => {
+  document.querySelectorAll(".preset-btn").forEach(btn => {
     if (parseFloat(btn.dataset.value) === 1.0) {
       btn.classList.add("active");
     }
   });
 }
 
-function applyScenario(items, originalData, multiplier) {
-  // Prepare scenario request
-  const scenarios = items.map((item, idx) => ({
-    store_id: item.store_id,
-    product_id: item.product_id,
-    demand_multiplier: multiplier
+function applyScenario(originalData, multiplier) {
+  // Apply multiplier to data
+  const updatedData = originalData.map(row => ({
+    ...row,
+    forecast_units: Math.round(row.forecast_units * multiplier),
+    recommended_order_qty: Math.ceil(row.recommended_order_qty * multiplier)
   }));
   
-  // Fetch scenario forecast
-  fetch("/api/v1/forecast/scenario", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ scenarios })
-  })
-    .then(res => res.json())
-    .then(scenarioData => {
-      // Apply multiplier to forecast values for immediate feedback
-      // (In case backend doesn't return full updated recommendations)
-      const updatedData = originalData.map((row, idx) => {
-        const scenario = scenarioData[idx] || {};
-        return {
-          ...row,
-          forecast_units: scenario.adjusted_forecast || row.forecast_units * multiplier,
-          recommended_order_qty: scenario.adjusted_order_qty || Math.ceil(row.recommended_order_qty * multiplier)
-        };
-      });
-      
-      // Update all sections
-      renderChart(updatedData);
-      renderTable(updatedData);
-      renderBusinessImpactCard(updatedData);
-      renderInactionRiskCard(updatedData);
-      renderScenarioSnapshot(updatedData);
-      renderRiskSummaryCard(updatedData);
-      renderConfidenceCard(updatedData);
-      renderOperationalRec(updatedData);
-      updateSummary(updatedData);
-      
-      // Reattach explanation handlers to new table
-      attachExplanationHandlers();
-    })
-    .catch(err => {
-      console.error("Scenario simulation error:", err);
-    });
+  // Update relevant sections
+  // Do not re-render datasets; only update x-axis labels
+  updateChartLabels(updatedData);
+  renderTable(updatedData);
+  renderScenarioSnapshot(updatedData);
 }
 
 /* ================= TABLE RENDER ================= */
 
 function renderTable(data) {
+  if (!resultsArea) return;
+  
+  if (!data || data.length === 0) {
+    renderResultsFallback();
+    return;
+  }
+  
   let html = `
     <table>
       <tr>
         <th>Product</th>
+        <th>Category</th>
+        <th>Market</th>
         <th>Forecast</th>
         <th>Order Qty</th>
-        <th>
-          Risk
-          <span class="info" title="Risk reflects recent demand variability, not product quality.">
-            ⓘ
-            <span class="info-tooltip-box">Risk reflects recent demand variability, not product quality.</span>
-          </span>
-        </th>
-        <th>Decision Rationale</th>
+        <th>Risk</th>
       </tr>
   `;
 
   data.forEach(row => {
-    const safetyStockPct = Math.round(((row.recommended_order_qty - row.forecast_units) / row.forecast_units) * 100);
+    const forecastUnitsSafe = Math.max(Number(row.forecast_units) || 0, 1);
+    const safetyStockPct = row.safety_buffer_pct || 
+      Math.round(((row.recommended_order_qty - forecastUnitsSafe) / forecastUnitsSafe) * 100);
     const safetyStockContext = safetyStockPct > 0 
       ? `+${safetyStockPct}% safety buffer`
       : 'Base forecast';
     
+    const riskLevel = row.risk_level || row.demand_risk || 'Medium';
     const confidenceLevel = {
       'Low': 'High',
       'Medium': 'Medium',
       'High': 'Low'
     };
+
+    const productLabel = (row.product_name && String(row.product_name).trim().length > 0)
+      ? row.product_name
+      : `Product ${row.product_id}`;
     
     html += `
-      <tr class="${row.risk_level === "High" ? "row-alert" : ""}">
-        <td>${row.product_id}</td>
+      <tr class="${riskLevel === "High" ? "row-alert" : ""}">
+        <td>
+          <div class="product-name" title="${productLabel}">${productLabel}</div>
+          <div class="product-id subtle">ID: ${row.product_id}</div>
+        </td>
+        <td><span class="category-badge">${row.category || 'N/A'}</span></td>
+        <td><span class="market-badge">${row.market || 'N/A'}</span></td>
         <td>${Math.round(row.forecast_units)}</td>
         <td>
           <div class="order-qty-badge">RECOMMENDED</div>
           <div class="order-qty-primary">${row.recommended_order_qty} units</div>
           <div class="order-qty-context">${safetyStockContext}</div>
         </td>
-        <td class="risk ${row.risk_level.toLowerCase()}">
-          <span class="risk-label">${row.risk_level}</span>
-          <span class="risk-confidence">• ${confidenceLevel[row.risk_level]} confidence</span>
-        </td>
-        <td>
-          <button class="explain-btn" 
-            data-product="${row.product_id}"
-            data-store="${storeSelect.value}"
-            title="See why this order quantity was recommended">
-            📊
-          </button>
+        <td class="risk ${riskLevel.toLowerCase()}">
+          <span class="risk-label">${riskLevel}</span>
+          <span class="risk-confidence">• Recommendation reliability ${confidenceLevel[riskLevel] || 'Medium'}</span>
         </td>
       </tr>
     `;
@@ -333,355 +663,230 @@ function renderTable(data) {
   resultsArea.innerHTML = html;
 }
 
-
 /* ================= CHART RENDER ================= */
 
 function renderChart(data) {
+  const ctx = document.getElementById("forecastChart");
+  if (!ctx) return;
+  
+  if (!data || data.length === 0) {
+    renderForecastFallback();
+    return;
+  }
+  
+  // Destroy existing chart and clear canvas to avoid ghost drawings
+  if (forecastChart) forecastChart.destroy();
+  const c2d = ctx.getContext("2d");
+  if (c2d) {
+    c2d.clearRect(0, 0, ctx.width, ctx.height);
+  }
+  
   const labels = data.map(d => d.product_id);
+  const displayLabels = data.map(d => (d.product_name && String(d.product_name).trim().length > 0) ? d.product_name : `Product ${d.product_id}`);
   const forecast = data.map(d => d.forecast_units);
   const orderQty = data.map(d => d.recommended_order_qty);
+  
+  // Calculate confidence bounds
+  const lowerBounds = data.map(row => Math.round(row.forecast_units * 0.85));
+  const upperBounds = data.map(row => Math.round(row.forecast_units * 1.15));
+  
+  const datasets = [
+    {
+      type: "line",
+      label: "Maximum Expected Demand",
+      data: upperBounds,
+      borderColor: "rgba(34, 211, 238, 0.95)",
+      backgroundColor: "transparent",
+      pointRadius: 4,
+      pointHoverRadius: 5,
+      pointBackgroundColor: "rgba(34, 211, 238, 0.95)",
+      pointBorderColor: "rgba(6, 182, 212, 1)",
+      pointBorderWidth: 2,
+      borderWidth: 2,
+      fill: false,
+      tension: 0.3
+    },
+    {
+      type: "line",
+      label: "Minimum Expected Demand",
+      data: lowerBounds,
+      borderColor: "rgba(124, 58, 237, 0.35)",
+      backgroundColor: "transparent",
+      pointRadius: 0,
+      pointHoverRadius: 0,
+      borderWidth: 1,
+      fill: false,
+      tension: 0.3
+    },
+    {
+      label: "Expected Demand",
+      data: forecast,
+      backgroundColor: "rgba(168, 85, 247, 0.85)",
+      borderColor: "rgba(196, 181, 253, 1)",
+      borderWidth: 2,
+      pointRadius: 3,
+      pointBackgroundColor: "rgba(196, 181, 253, 1)",
+      pointBorderColor: "rgba(168, 85, 247, 1)",
+      pointBorderWidth: 1
+    },
+    {
+      label: "Recommended Order",
+      data: orderQty,
+      backgroundColor: "rgba(16, 185, 129, 0.8)",
+      borderColor: "rgba(52, 211, 153, 1)",
+      borderWidth: 2,
+      pointRadius: 3,
+      pointBackgroundColor: "rgba(52, 211, 153, 1)",
+      pointBorderColor: "rgba(16, 185, 129, 1)",
+      pointBorderWidth: 1
+    }
+  ];
 
-  const ctx = document.getElementById("forecastChart");
-
-  if (forecastChart) forecastChart.destroy();
-
-  // Fetch confidence data for uncertainty bands
-  const storeId = storeSelect.value;
-  const productIds = Array.from(productSelect.selectedOptions).map(opt => opt.value);
-
-  Promise.all(
-    productIds.map(pid => 
-      fetch(`/api/v1/forecast/confidence?store_id=${storeId}&product_id=${pid}`)
-        .then(res => res.json())
-        .catch(() => null)
-    )
-  ).then(confidenceData => {
-    // Extract confidence bounds
-    const lowerBounds = data.map((row, idx) => {
-      const conf = confidenceData[idx];
-      return conf && conf.lower_bound ? conf.lower_bound : row.forecast_units * 0.85;
-    });
-
-    const upperBounds = data.map((row, idx) => {
-      const conf = confidenceData[idx];
-      return conf && conf.upper_bound ? conf.upper_bound : row.forecast_units * 1.15;
-    });
-
-    // Build datasets with confidence bands
-    const datasets = [
-      {
-        label: "Maximum Expected Demand",
-        data: upperBounds,
-        borderColor: "rgba(34, 211, 238, 0.95)",
-        backgroundColor: "transparent",
-        pointRadius: 5,
-        pointHoverRadius: 6,
-        pointBackgroundColor: "rgba(34, 211, 238, 0.95)",
-        pointBorderColor: "rgba(6, 182, 212, 1)",
-        pointBorderWidth: 2,
-        borderWidth: 3,
-        fill: false,
-        tension: 0.3
-      },
-      {
-        label: "Minimum Expected Demand",
-        data: lowerBounds,
-        borderColor: "transparent",
-        backgroundColor: "rgba(124, 58, 237, 0.15)",
-        pointRadius: 0,
-        pointHoverRadius: 0,
-        borderWidth: 0,
-        fill: "-1",
-        tension: 0
-      },
-      {
-        label: "Expected Demand",
-        data: forecast,
-        backgroundColor: "rgba(168, 85, 247, 0.85)",
-        borderColor: "rgba(196, 181, 253, 1)",
-        borderWidth: 3,
-        pointRadius: 5,
-        pointBackgroundColor: "rgba(196, 181, 253, 1)",
-        pointBorderColor: "rgba(168, 85, 247, 1)",
-        pointBorderWidth: 2
-      },
-      {
-        label: "Recommended Order",
-        data: orderQty,
-        backgroundColor: "rgba(16, 185, 129, 0.8)",
-        borderColor: "rgba(52, 211, 153, 1)",
-        borderWidth: 3,
-        pointRadius: 5,
-        pointBackgroundColor: "rgba(52, 211, 153, 1)",
-        pointBorderColor: "rgba(16, 185, 129, 1)",
-        pointBorderWidth: 2
-      }
-    ];
-
-    forecastChart = new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels,
-        datasets
-      },
-      options: {
-        responsive: true,
-        interaction: { mode: "index", intersect: false },
-        plugins: {
-          filler: { propagate: true },
-          legend: { 
-            labels: { color: "#f1f5f9", font: { size: 12, weight: 600 } },
-            padding: 16,
-            position: 'bottom'
-          },
-          tooltip: {
-            backgroundColor: "rgba(10, 14, 39, 0.9)",
-            titleColor: "#f1f5f9",
-            bodyColor: "#cbd5e1",
-            borderColor: "rgba(6, 182, 212, 0.3)",
-            borderWidth: 1,
-            padding: 12,
-            boxPadding: 8,
-            callbacks: {
-              label: function(context) {
-                let label = context.dataset.label || '';
-                if (label) {
-                  label += ': ';
-                }
-                if (context.parsed.y !== null) {
-                  label += Math.round(context.parsed.y);
-                }
-                return label;
-              }
+  forecastChart = new Chart(ctx, {
+    type: "bar",
+    data: { labels: displayLabels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: { mode: "index", intersect: false },
+      animation: false,
+      plugins: {
+        filler: { propagate: true },
+        legend: { 
+          labels: { color: "#f1f5f9", font: { size: 12, weight: 600 } },
+          padding: 16,
+          position: 'bottom'
+        },
+        tooltip: {
+          backgroundColor: "rgba(10, 14, 39, 0.9)",
+          titleColor: "#f1f5f9",
+          bodyColor: "#cbd5e1",
+          borderColor: "rgba(6, 182, 212, 0.3)",
+          borderWidth: 1,
+          padding: 12,
+          boxPadding: 8,
+          callbacks: {
+            title: function(context) {
+              if (!context || !context.length) return '';
+              return context[0].label || '';
+            },
+            label: function(context) {
+              let label = context.dataset.label || '';
+              if (label) label += ': ';
+              if (context.parsed.y !== null) label += Math.round(context.parsed.y);
+              return label;
             }
           }
-        },
-        scales: {
-          x: { 
-            ticks: { color: "#94a3b8" },
-            grid: { color: "rgba(6, 182, 212, 0.05)" }
+        }
+      },
+      scales: {
+        x: { 
+          ticks: { 
+            color: "#94a3b8",
+            autoSkip: true,
+            maxRotation: 30,
+            minRotation: 0,
+            callback: function(value) {
+              const label = this.getLabelForValue(value) || '';
+              return label.length > 18 ? label.slice(0, 18) + '…' : label;
+            }
           },
-          y: { 
-            ticks: { color: "#94a3b8" },
-            grid: { color: "rgba(6, 182, 212, 0.05)" }
-          }
+          grid: { color: "rgba(6, 182, 212, 0.05)" }
+        },
+        y: { 
+          ticks: { color: "#94a3b8" },
+          grid: { color: "rgba(6, 182, 212, 0.05)" }
         }
       }
-    });
+    }
   });
+}
+
+// Update only x-axis labels without changing datasets
+function updateChartLabels(data) {
+  if (!forecastChart) return;
+  const newLabels = data.map(d => (d.product_name && String(d.product_name).trim().length > 0) ? d.product_name : `Product ${d.product_id}`);
+  forecastChart.data.labels = newLabels;
+  forecastChart.update('none');
 }
 
 /* ================= SUMMARY BAR ================= */
 
-function updateSummary(data) {
-  const totalOrder = data.reduce((sum, d) => sum + d.recommended_order_qty, 0);
-  const counts = { Low: 0, Medium: 0, High: 0 };
-  data.forEach(d => counts[d.risk_level]++);
-
+function updateSummary(summary, data) {
+  if (!summaryBar || !summary) return;
+  
+  const totalOrder = summary.total_order_qty || 0;
+  const highRiskCount = summary.high_risk_count || 0;
+  const mediumRiskCount = summary.medium_risk_count || 0;
+  const totalItems = summary.total_items || 0;
+  
   let actionText = '';
   let riskLevel = 'low';
   let riskBadge = 'LOW RISK';
 
-  if (counts.High > 0) {
+  if (highRiskCount > 0) {
     riskLevel = 'high';
     riskBadge = 'HIGH RISK';
-    const riskPct = Math.round((counts.High / data.length) * 100);
-    actionText = `⚠ <strong>${riskPct}% of portfolio</strong> has elevated variability. Recommend <strong>${counts.High} priority reviews</strong> before ordering <strong>${totalOrder} units</strong>.`;
-  } else if (counts.Medium > 0) {
+    const riskPct = Math.round((highRiskCount / Math.max(totalItems, 1)) * 100);
+    actionText = `⚠ <strong>${riskPct}% of selected items</strong> show unstable demand. Review <strong>${highRiskCount} items</strong> before ordering <strong>${Math.round(totalOrder)} units</strong>.`;
+  } else if (mediumRiskCount > 0) {
     riskLevel = 'medium';
     riskBadge = 'MEDIUM RISK';
-    actionText = `→ Portfolio ready for ordering with <strong>${counts.Medium} items</strong> needing attention. <strong>Total order: ${totalOrder} units</strong> across <strong>${data.length} products</strong>.`;
+    actionText = `→ Plan acceptable. <strong>${mediumRiskCount} items</strong> need a quick check. Proceed with <strong>${Math.round(totalOrder)} units</strong> across <strong>${totalItems} products</strong>.`;
   } else {
-    actionText = `✓ <strong>Ready to order: ${totalOrder} units</strong> across all <strong>${data.length} products</strong>. Low variability detected. Safe to proceed with current plan.`;
+    actionText = `✓ Ready to order <strong>${Math.round(totalOrder)} units</strong> across <strong>${totalItems} products</strong>. Demand appears stable.`;
   }
+
+  const marketContext = summary.market_context || 'All Markets';
+  const categoryContext = summary.category_context || 'All Categories';
 
   summaryBar.innerHTML = `
     <div class="summary-content">
       <span class="summary-action">${actionText}</span>
       <span class="summary-badge" data-risk="${riskLevel}">${riskBadge}</span>
     </div>
-    <p class="summary-subtitle">POWERED BY DEMAND FORECASTING & CONFIDENCE-ADJUSTED SAFETY STOCK OPTIMIZATION</p>
+    <p class="summary-subtitle">
+      ${marketContext} • ${categoryContext} — Based on recent sales history; assumes normal operations.
+    </p>
   `;
   summaryBar.classList.remove("hidden");
-
-  // Update risk insight
-  const counts2 = { Low: 0, Medium: 0, High: 0 };
-  data.forEach(d => counts2[d.risk_level]++);
-  updateRiskInsight(counts2, data.length, riskLevel);
-}
-
-/* ================= RISK INSIGHT ================= */
-
-function updateRiskInsight(counts, totalProducts, riskLevel) {
-  const riskInsightDiv = document.getElementById('riskInsight');
-  let insightText = '';
-
-  if (riskLevel === 'high') {
-    insightText = `High variability detected in <strong>${counts.High}</strong> products. These items experienced significant demand fluctuations in recent weeks, increasing the chance of stockout or overstock. Consider reviewing recent promotions, competitor activity, or seasonal factors before committing to large orders.`;
-  } else if (riskLevel === 'medium') {
-    insightText = `Moderate variability affects <strong>${counts.Medium}</strong> products. While these are manageable with standard safety stock practices, monitor them more closely than stable items. A small increase to the recommended order quantity may provide additional buffer.`;
-  } else {
-    insightText = `Low variability across the portfolio. All items show stable, predictable demand patterns. Recommended order quantities are reliable for inventory planning purposes.`;
-  }
-
-  riskInsightDiv.querySelector('.risk-insight-text').innerHTML = insightText;
-  riskInsightDiv.classList.remove('hidden');
-}
-
-/* ================= FORECAST EXPLANATION ================= */
-
-function generateInterpretation(features, riskLevel) {
-  if (!features || features.length === 0) {
-    return 'Decision based on recent demand patterns and historical trends.';
-  }
-  
-  const topFactor = features[0]?.feature?.toLowerCase() || '';
-  const hasVolatility = features.some(f => f.feature.toLowerCase().includes('volatility') || f.feature.toLowerCase().includes('std'));
-  const hasTrend = features.some(f => f.feature.toLowerCase().includes('trend') || f.feature.toLowerCase().includes('sales'));
-  
-  if (riskLevel === 'High') {
-    if (hasVolatility) {
-      return 'High demand variability detected. Safety stock buffer increased to reduce stockout risk.';
-    }
-    return 'Recent demand patterns show volatility. Order quantity includes protective buffer.';
-  }
-  
-  if (riskLevel === 'Medium') {
-    if (hasVolatility && hasTrend) {
-      return 'Moderate variability with stable trend. Standard safety stock applied.';
-    }
-    return 'Balanced approach using recent demand history and variability measures.';
-  }
-  
-  // Low risk
-  if (hasTrend && !hasVolatility) {
-    return 'Stable demand trend with low variability. Minimal safety buffer applied.';
-  }
-  return 'Stable demand patterns indicate predictable inventory needs.';
-}
-
-function attachExplanationHandlers() {
-  document.querySelectorAll(".explain-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const product = btn.dataset.product;
-      const store = btn.dataset.store;
-      
-      // Close any existing tooltip
-      document.querySelectorAll(".explain-tooltip").forEach(t => t.remove());
-      
-      // Create and show loading state
-      const tooltip = document.createElement("div");
-      tooltip.className = "explain-tooltip";
-      tooltip.innerHTML = '<div class="explain-loading">Loading drivers...</div>';
-      document.body.appendChild(tooltip);
-      
-      // Position tooltip near the button
-      const btnRect = btn.getBoundingClientRect();
-      tooltip.style.top = (btnRect.bottom + 10) + "px";
-      tooltip.style.left = Math.max(10, (btnRect.left - 140)) + "px";
-      
-      // Fetch explanation
-      fetch(`/api/v1/forecast/explain?store_id=${store}&product_id=${product}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.top_features && data.top_features.length > 0) {
-            // Get the row data to determine risk level for context
-            const table = document.querySelector('table');
-            let riskLevel = 'Low';
-            if (table) {
-              const rows = Array.from(table.querySelectorAll('tbody tr'));
-              const row = rows.find(r => r.querySelector('td')?.textContent.includes(product));
-              if (row) {
-                const riskCell = row.querySelector('.risk');
-                if (riskCell) {
-                  const riskText = riskCell.textContent.trim();
-                  if (riskText.includes('High')) riskLevel = 'High';
-                  else if (riskText.includes('Medium')) riskLevel = 'Medium';
-                }
-              }
-            }
-            
-            // Generate interpretation based on dominant factors and risk level
-            const interpretation = generateInterpretation(data.top_features, riskLevel);
-            
-            let html = `<h4>Why This Order Was Recommended</h4>`;
-            data.top_features.forEach(feature => {
-              const featureName = feature.feature || feature.name || 'Unknown';
-              const score = parseFloat(feature.impact).toFixed(1);
-              html += `
-                <div class="explain-feature">
-                  <span class="explain-feature-name">${featureName}</span>
-                  <span class="explain-feature-score">${score}%</span>
-                </div>
-              `;
-            });
-            html += `<p class="explain-interpretation">${interpretation}</p>`;
-            tooltip.innerHTML = html;
-          } else {
-            tooltip.innerHTML = '<div class="explain-loading">Decision based on recent demand patterns and historical trends</div>';
-          }
-        })
-        .catch(err => {
-          tooltip.innerHTML = '<div class="explain-loading">Decision based on recent demand patterns and historical trends</div>';
-          console.error("Explanation fetch error:", err);
-        });
-    });
-  });
-  
-  // Close tooltip on document click
-  document.addEventListener("click", () => {
-    document.querySelectorAll(".explain-tooltip").forEach(t => t.remove());
-  });
 }
 
 /* ================= BUSINESS IMPACT CARD ================= */
 
-function renderBusinessImpactCard(data) {
+function renderBusinessImpactCard(impact, context) {
   const container = document.getElementById('businessImpact');
+  if (!container) return;
   
-  if (!data || data.length === 0) {
-    container.innerHTML = '';
+  if (!impact) {
+    renderBusinessImpactFallback();
     return;
   }
-  
-  // Calculate metrics
-  const totalForecast = data.reduce((sum, d) => sum + d.forecast_units, 0);
-  const totalOrder = data.reduce((sum, d) => sum + d.recommended_order_qty, 0);
-  const totalSafetyStock = totalOrder - totalForecast;
-  const safetyStockPct = Math.round((totalSafetyStock / totalForecast) * 100);
-  
-  // Calculate stockout risk based on high-risk items
-  const highRiskCount = data.filter(d => d.risk_level === 'High').length;
-  const stockoutRiskAvoided = highRiskCount > 0 ? Math.round((highRiskCount / data.length) * 100) : 5;
-  
-  // Service level (inverse of stockout risk)
-  const expectedServiceLevel = 100 - stockoutRiskAvoided;
-  
-  // Cost direction (based on safety stock)
-  const costDirection = safetyStockPct > 15 ? '↑' : safetyStockPct > 0 ? '→' : '↓';
-  const costText = safetyStockPct > 15 ? 'Cost increase' : safetyStockPct > 0 ? 'Minimal cost impact' : 'Cost reduction';
   
   const html = `
     <div class="impact-item">
       <span class="impact-label">STOCKOUT RISK AVOIDED</span>
-      <span class="impact-value">${stockoutRiskAvoided}%</span>
+      <span class="impact-value">${impact.stockout_risk_avoided || 0}%</span>
       <span class="impact-unit">Demand coverage</span>
+      <span class="impact-note">Lower chance of missed sales with current plan.</span>
     </div>
     <div class="impact-item">
       <span class="impact-label">SAFETY BUFFER</span>
-      <span class="impact-value">${safetyStockPct}%</span>
-      <span class="impact-unit">${totalSafetyStock} units</span>
+      <span class="impact-value">${impact.safety_buffer_pct || 0}%</span>
+      <span class="impact-unit">${impact.safety_buffer_units || 0} units</span>
+      <span class="impact-note">Extra units added to absorb demand swings.</span>
     </div>
     <div class="impact-item">
       <span class="impact-label">EXPECTED SERVICE LEVEL</span>
-      <span class="impact-value">${expectedServiceLevel}%</span>
+      <span class="impact-value">${impact.expected_service_level || 95}%</span>
       <span class="impact-unit">fulfillment rate</span>
+      <span class="impact-note">Orders expected to meet customer demand.</span>
     </div>
     <div class="impact-item">
       <span class="impact-label">COST IMPACT</span>
-      <span class="impact-direction">${costDirection}</span>
-      <span class="impact-unit">${costText}</span>
+      <span class="impact-direction">${impact.cost_direction || '→'}</span>
+      <span class="impact-unit">${impact.cost_text || 'Minimal'}</span>
+      <span class="impact-note">Direction of inventory cost pressure.</span>
     </div>
   `;
   
@@ -690,47 +895,39 @@ function renderBusinessImpactCard(data) {
 
 /* ================= INACTION RISK CARD ================= */
 
-function renderInactionRiskCard(data) {
+function renderInactionRiskCard(risk, context) {
   const container = document.getElementById('inactionRisk');
+  if (!container) return;
   
-  if (!data || data.length === 0) {
-    container.innerHTML = '';
+  if (!risk) {
+    renderInactionRiskFallback();
     return;
   }
-  
-  // Calculate counterfactual risk if no action taken
-  const totalForecast = data.reduce((sum, d) => sum + d.forecast_units, 0);
-  const highRiskCount = data.filter(d => d.risk_level === 'High').length;
-  
-  // Inaction risk: stockout rate without safety stock
-  const stockoutRiskIncrease = highRiskCount > 0 ? Math.round((highRiskCount / data.length) * 100) : 8;
-  
-  // Potential lost sales (units not fulfilled) - estimated as forecast variance
-  const potentialLostUnits = Math.ceil(totalForecast * (stockoutRiskIncrease / 100));
-  
-  // Service level drop (without safety buffer)
-  const serviceDropWithoutBuffer = Math.round(stockoutRiskIncrease * 1.3); // Amplified without buffer
   
   const html = `
     <div class="inaction-item">
       <span class="inaction-label">STOCKOUT RISK ↑</span>
-      <span class="inaction-value">+${stockoutRiskIncrease}%</span>
+      <span class="inaction-value">+${risk.stockout_risk_increase || 0}%</span>
       <span class="inaction-unit">vs. recommended plan</span>
+      <span class="inaction-note">Waiting increases the chance of missed sales.</span>
     </div>
     <div class="inaction-item">
       <span class="inaction-label">POTENTIAL UNFULFILLED</span>
-      <span class="inaction-value">~${potentialLostUnits}</span>
+      <span class="inaction-value">~${risk.potential_lost_units || 0}</span>
       <span class="inaction-unit">units</span>
+      <span class="inaction-note">Estimated demand not met without this order.</span>
     </div>
     <div class="inaction-item">
       <span class="inaction-label">SERVICE LEVEL ↓</span>
-      <span class="inaction-value">−${serviceDropWithoutBuffer}%</span>
+      <span class="inaction-value">−${risk.service_level_drop || 0}%</span>
       <span class="inaction-unit">fulfillment rate</span>
+      <span class="inaction-note">Customer fulfillment degrades if plan is delayed.</span>
     </div>
     <div class="inaction-item">
       <span class="inaction-label">RECOMMENDATION</span>
       <span class="inaction-value">⚠️</span>
-      <span class="inaction-unit">Proceed with plan</span>
+      <span class="inaction-unit">${risk.recommendation || 'Proceed with plan'}</span>
+      <span class="inaction-note">Act promptly on the plan to avoid service drops.</span>
     </div>
   `;
   
@@ -741,13 +938,13 @@ function renderInactionRiskCard(data) {
 
 function renderScenarioSnapshot(data) {
   const container = document.getElementById('scenarioSnapshot');
+  if (!container) return;
   
   if (!data || data.length === 0) {
-    container.innerHTML = '';
+    renderScenarioSnapshotFallback();
     return;
   }
   
-  // Calculate scenario totals
   const baseTotal = data.reduce((sum, d) => sum + d.recommended_order_qty, 0);
   const conservativeTotal = Math.ceil(baseTotal * 0.7);
   const aggressiveTotal = Math.ceil(baseTotal * 1.3);
@@ -757,18 +954,22 @@ function renderScenarioSnapshot(data) {
       <tr>
         <th>Scenario</th>
         <th>Order Qty</th>
+        <th>Interpretation</th>
       </tr>
       <tr>
         <td>Conservative (−30%)</td>
         <td>${conservativeTotal}</td>
+        <td class="scenario-interpretation">Pessimistic demand outlook</td>
       </tr>
       <tr style="background: rgba(6, 182, 212, 0.1);">
         <td><strong>Base Case</strong></td>
         <td><strong>${baseTotal}</strong></td>
+        <td class="scenario-interpretation"><strong>Recommended</strong></td>
       </tr>
       <tr>
         <td>Aggressive (+30%)</td>
         <td>${aggressiveTotal}</td>
+        <td class="scenario-interpretation">Optimistic demand outlook</td>
       </tr>
     </table>
   `;
@@ -778,37 +979,56 @@ function renderScenarioSnapshot(data) {
 
 /* ================= RISK SUMMARY CARD ================= */
 
-function renderRiskSummaryCard(data) {
+function renderRiskSummaryCard(summary) {
   const container = document.getElementById('riskSummary');
+  if (!container) return;
   
-  if (!data || data.length === 0) {
-    container.innerHTML = '';
+  if (!summary) {
+    renderRiskSummaryFallback();
     return;
   }
-
-  const counts = { Low: 0, Medium: 0, High: 0 };
-  data.forEach(d => counts[d.risk_level]++);
   
   const html = `
-    <p>High risk products: <strong>${counts.High}</strong></p>
-    <p>Medium risk products: <strong>${counts.Medium}</strong></p>
-    <p>Low risk products: <strong>${counts.Low}</strong></p>
+    <p>Products with unstable demand: <strong>${summary.high_risk_count || 0}</strong></p>
+    <p>Products requiring attention: <strong>${summary.medium_risk_count || 0}</strong></p>
+    <p>Stable products: <strong>${summary.low_risk_count || 0}</strong></p>
   `;
   
   container.innerHTML = html;
+  
+  // Update risk insight
+  const riskInsightDiv = document.getElementById('riskInsight');
+  if (riskInsightDiv) {
+    const highCount = summary.high_risk_count || 0;
+    const mediumCount = summary.medium_risk_count || 0;
+    let insightText = '';
+    
+    if (highCount > 0) {
+      insightText = `What could go wrong: Unpredictable demand in <strong>${highCount}</strong> products can cause stockouts or excess inventory. Action: Review these items and confirm safety buffers before ordering.`;
+    } else if (mediumCount > 0) {
+      insightText = `Why it matters: <strong>${mediumCount}</strong> products show some demand swings. Action: Proceed, but monitor them and adjust if signals change.`;
+    } else {
+      insightText = `Stable demand across selected products. Proceed with the plan.`;
+    }
+    
+    const textDiv = riskInsightDiv.querySelector('.risk-insight-text');
+    if (textDiv) textDiv.innerHTML = insightText;
+    riskInsightDiv.classList.remove('hidden');
+  }
 }
 
 /* ================= CONFIDENCE CARD ================= */
 
-function renderConfidenceCard(data) {
+function renderConfidenceCard(summary) {
   const container = document.getElementById('confidenceBox');
+  if (!container) return;
   
-  if (!data || data.length === 0) {
-    container.innerHTML = '';
+  if (!summary) {
+    renderConfidenceFallback();
     return;
   }
   
-  const highRiskCount = data.filter(d => d.risk_level === 'High').length;
+  const highRiskCount = summary.high_risk_count || 0;
   const hasVolatility = highRiskCount > 0;
   
   const html = `
@@ -817,7 +1037,7 @@ function renderConfidenceCard(data) {
       <div class="confidence-text">
         <span class="confidence-label">RECENT SALES PATTERNS</span>
         <span class="confidence-description">
-          Based on the last 52 weeks of historical sales data for each product, with emphasis on recent weeks.
+          Recommendations reflect recent sales history for each product.
         </span>
       </div>
     </div>
@@ -826,28 +1046,28 @@ function renderConfidenceCard(data) {
       <div class="confidence-text">
         <span class="confidence-label">DEMAND STABILITY</span>
         <span class="confidence-description">
-          ${hasVolatility ? 'Some products show variability in weekly demand, handled with protective safety stock.' : 'Products show stable, predictable demand patterns across all time periods.'}
+          ${hasVolatility ? 'Some items show demand swings; safety buffers protect against shortfalls.' : 'Demand appears stable across selected products.'}
         </span>
         <span class="confidence-badge ${highRiskCount === 0 ? 'stable' : 'variable'}">
-          ${highRiskCount === 0 ? '✓ STABLE' : '⚠ VARIABLE'}
+          ${highRiskCount === 0 ? '✓ STEADY' : '⚠ SWINGS'}
         </span>
       </div>
     </div>
     <div class="confidence-item">
-      <div class="confidence-icon">🎯</div>
+      <div class="confidence-icon">🌍</div>
       <div class="confidence-text">
-        <span class="confidence-label">SEASONAL BEHAVIOR</span>
+        <span class="confidence-label">MARKET CONTEXT</span>
         <span class="confidence-description">
-          No unusual seasonal patterns detected. Recommendations assume consistent demand cycles relative to historical norms.
+          Based on ${summary.market_context || 'All Markets'} data. ${summary.total_items || 0} products included.
         </span>
       </div>
     </div>
     <div class="confidence-item">
       <div class="confidence-icon">✓</div>
       <div class="confidence-text">
-        <span class="confidence-label">MODEL ASSUMPTIONS</span>
+        <span class="confidence-label">PLANNING ASSUMPTIONS</span>
         <span class="confidence-description">
-          No supply disruptions, no major promotional activity, and normal competitive landscape as in historical period.
+          Assumes no major supply disruptions or promotions.
         </span>
       </div>
     </div>
@@ -858,39 +1078,40 @@ function renderConfidenceCard(data) {
 
 /* ================= OPERATIONAL RECOMMENDATION ================= */
 
-function renderOperationalRec(data) {
+function renderOperationalRec(summary, data) {
   const container = document.getElementById('operationalRec');
+  if (!container) return;
   
-  if (!data || data.length === 0) {
-    container.innerHTML = '';
+  if (!summary || !data) {
+    renderOperationalRecFallback();
     return;
   }
   
-  // Determine primary recommendation
-  const totalOrder = data.reduce((sum, d) => sum + d.recommended_order_qty, 0);
-  const highRiskCount = data.filter(d => d.risk_level === 'High').length;
-  const mediumRiskCount = data.filter(d => d.risk_level === 'Medium').length;
+  const totalOrder = summary.total_order_qty || 0;
+  const totalItems = summary.total_items || 0;
+  const highRiskCount = summary.high_risk_count || 0;
+  const mediumRiskCount = summary.medium_risk_count || 0;
   
   let primaryRec = '';
   let followUpTiming = '';
   let authorityMsg = '';
   
   if (highRiskCount > 2) {
-    primaryRec = 'Review high-variability items before committing to order';
+    primaryRec = 'Review items with unstable demand before committing to order';
     followUpTiming = '⏳ Estimated review time: 15–20 minutes. Re-check forecast in 3 days.';
-    authorityMsg = 'This recommendation balances service-level targets and inventory cost using recent demand volatility assessment.';
+    authorityMsg = 'This recommendation balances service-level targets and inventory cost given recent demand swings.';
   } else if (highRiskCount > 0) {
-    primaryRec = 'Proceed with order, monitor high-variability items closely';
+    primaryRec = 'Proceed with order, monitor items with unstable demand closely';
     followUpTiming = '⏳ Monitor for anomalies. Re-evaluate in 7 days.';
-    authorityMsg = 'This recommendation balances service-level targets and inventory cost using recent demand patterns and volatility analysis.';
-  } else if (mediumRiskCount > data.length * 0.5) {
+    authorityMsg = 'This recommendation balances service-level targets and inventory cost based on recent demand signals.';
+  } else if (mediumRiskCount > totalItems * 0.5) {
     primaryRec = 'Safe to proceed with current plan';
     followUpTiming = '⏳ Routine monitoring. Next review in 14 days.';
     authorityMsg = 'This recommendation balances service-level targets and inventory cost using recent demand stability and historical performance.';
   } else {
     primaryRec = 'Ready to execute with confidence';
     followUpTiming = '⏳ Low risk portfolio. Monthly review sufficient.';
-    authorityMsg = 'This recommendation balances service-level targets and inventory cost using stable demand signals and historical performance.';
+    authorityMsg = 'This recommendation balances service-level targets and inventory cost using stable demand signals.';
   }
   
   const html = `
@@ -899,7 +1120,7 @@ function renderOperationalRec(data) {
       <div class="rec-content">
         <div class="rec-title">${primaryRec}</div>
         <div class="rec-text">
-          Order <strong>${totalOrder} units</strong> across <strong>${data.length} products</strong> to meet forecasted demand with appropriate safety buffers.
+          Order <strong>${Math.round(totalOrder)} units</strong> across <strong>${totalItems} products</strong> to meet forecasted demand with appropriate safety buffers.
         </div>
         <div class="rec-authority">
           <em>${authorityMsg}</em>
@@ -916,11 +1137,12 @@ function renderOperationalRec(data) {
 
 /* ================= MODEL HEALTH ================= */
 
-function renderModelHealth(data) {
+function renderModelHealth(summary) {
   const container = document.getElementById('modelHealth');
+  if (!container) return;
   
-  if (!data || data.length === 0) {
-    container.innerHTML = '';
+  if (!summary) {
+    renderModelHealthFallback();
     return;
   }
   
@@ -932,7 +1154,7 @@ function renderModelHealth(data) {
     </div>
     <div class="health-item">
       <span class="health-label">MODEL VERSION</span>
-      <span class="health-value">v1.0 MVP</span>
+      <span class="health-value">v1.0 Enterprise</span>
       <span class="health-status">✓ Active</span>
     </div>
     <div class="health-item">
@@ -942,7 +1164,7 @@ function renderModelHealth(data) {
     </div>
     <div class="health-item">
       <span class="health-label">ITEMS ANALYZED</span>
-      <span class="health-value">${data.length}</span>
+      <span class="health-value">${summary.total_items || 0}</span>
       <span class="health-status">✓ Complete</span>
     </div>
   `;

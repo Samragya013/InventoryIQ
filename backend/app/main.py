@@ -12,6 +12,8 @@ from backend.app.routers import (
     forecast_explain,
     forecast_scenario,
     forecast_confidence,
+    market_intelligence,
+    inventory_planning,
 )
 
 
@@ -56,11 +58,13 @@ app.include_router(analytics.router)
 app.include_router(forecast_explain.router)
 app.include_router(forecast_scenario.router)
 app.include_router(forecast_confidence.router)
+app.include_router(market_intelligence.router)
+app.include_router(inventory_planning.router)
 
 # Verify critical endpoints are accessible
 @app.on_event("startup")
 async def startup_event():
     """Verify that critical metadata endpoints are accessible."""
     print("✓ FastAPI application started successfully")
-    print("✓ Metadata endpoints (/api/v1/stores, /api/v1/products) are available")
-    print("✓ Frontend will now be able to load stores and products")
+    print("✓ Enterprise endpoints (/api/v1/markets, /api/v1/categories) are available")
+    print("✓ Inventory planning endpoints (/api/v1/inventory/plan) are available")
